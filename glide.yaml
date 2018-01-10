@@ -1,22 +1,9 @@
 package: github.com/hyperpilotio/node-agent
 import:
+- package: github.com/sirupsen/logrus
 - package: github.com/gobwas/glob
-  version: ~0.2.2
-- package: github.com/hyperpilotio/snap-average-counter-processor
-  version: ~0.1.0
+testImport:
+- package: github.com/golang/glog
+- package: github.com/smartystreets/goconvey
   subpackages:
-  - agent
-- package: github.com/hyperpilotio/snap-plugin-collector-prometheus
-  subpackages:
-  - prometheus
-- package: github.com/intelsdi-x/snap-plugin-collector-docker
-  version: ~9.0.0
-  subpackages:
-  - collector
-- package: github.com/intelsdi-x/snap-plugin-lib-go
-  subpackages:
-  - v1/plugin
-- package: github.com/intelsdi-x/snap-plugin-publisher-influxdb
-  version: ~25.0.0
-  subpackages:
-  - influxdb
+  - convey
