@@ -1,0 +1,28 @@
+{
+    "tasks": [
+        {
+            "schedule": {
+                "interval": "5s"
+            },
+            "collect": {
+                "plugin": "disk",
+                "metrics": "/intel/procfs/disk/*",
+                "config": {
+                    "proc_path": "/proc"
+                }
+            },
+            "publish": [
+                "json"
+            ]
+        }
+    ],
+    "publish": [
+        {
+            "name": "json",
+            "plugin": "file",
+            "config": {
+                "file": "/tmp/node-agent-collect-disk.json"
+            }
+        }
+    ]
+}
