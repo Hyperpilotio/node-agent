@@ -5,12 +5,14 @@
         "interval": "5s"
       },
       "collect": {
-        "plugin": "disk",
+        "plugin": "cpu",
         "metrics": {
-          "/intel/procfs/disk/*": {}
+          "/intel/procfs/cpu/*": {}
         },
         "config": {
-          "proc_path": "/proc"
+          "/intel/procfs/cpu": {
+            "proc_path": "/proc"
+          }
         }
       },
       "publish": [

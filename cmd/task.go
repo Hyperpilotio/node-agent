@@ -11,6 +11,7 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/processor"
 	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
+	"fmt"
 )
 
 type HyperpilotTask struct {
@@ -56,9 +57,17 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 
 func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	definition := task.Task
-	pattern, err := glob.Compile(definition.Collect.Metrics)
-	if err != nil {
-		return nil, errors.New("Unable to compile collect namespace: " + err.Error())
+
+	var patterns []glob.Glob
+
+	for name, _ := range definition.Collect.Metrics {
+		pattern, err := glob.Compile(name)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Unable to compile collect namespace {%s}: ", name, err.Error()))
+		}
+
+		patterns = append(patterns, pattern)
+
 	}
 
 	metricTypes, err := task.Collector.GetMetricTypes(definition.Collect.Config)
@@ -69,8 +78,11 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	newMetricTypes := []snap.Metric{}
 	for _, mts := range metricTypes {
 		mts.Config = definition.Collect.Config
-		if pattern.Match(mts.Namespace.String()) {
-			newMetricTypes = append(newMetricTypes, mts)
+		for _, pattern := range patterns {
+			if pattern.Match(mts.Namespace.String()) {
+				newMetricTypes = append(newMetricTypes, mts)
+				break
+			}
 		}
 	}
 

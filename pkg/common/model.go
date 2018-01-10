@@ -6,11 +6,15 @@ type Schedule struct {
 	Interval string `json:"interval"`
 }
 
+type metricInfo struct {
+	Version_ int `json:"version"yaml:"version"`
+}
+
 type Collect struct {
-	PluginName string      `json:"plugin"`
-	Metrics    string      `json:"metrics"`
-	Config     snap.Config `json:"config"`
-	Tags       snap.Config `json:"tags"`
+	PluginName string                `json:"plugin"`
+	Metrics    map[string]metricInfo `json:"metrics"`
+	Config     snap.Config           `json:"config"`
+	Tags       snap.Config           `json:"tags"`
 }
 
 type Process struct {
