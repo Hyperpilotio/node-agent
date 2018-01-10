@@ -1,33 +1,29 @@
 package publisher
 
 import (
-	"log"
+	"errors"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
 type HyperpilotPublisher struct {
 	MetricBuf chan []snap.Metric
-	Publisher snap.Publisher
+	Publisher Publisher
 	Config    snap.Config
 }
 
-func NewHyperpilotPublisher(plugin string, config snap.Config) *HyperpilotPublisher {
-
-	var publisher snap.Publisher
-	switch plugin {
-	case "snap-plugin-publisher-influxdb":
-		// publisher = influxdb.NewInfluxPublisher()
-	default:
-		log.Printf("not support publisher plugin")
-
+func NewHyperpilotPublisher(pluginName string, config snap.Config) (*HyperpilotPublisher, error) {
+	publisher, err := NewPublisher(pluginName)
+	if err != nil {
+		return nil, errors.New("Unable to create publisher: " + err.Error())
 	}
 
+	queue := make(chan []snap.Metric, 100)
 	return &HyperpilotPublisher{
-		MetricBuf: make(chan []snap.Metric),
+		MetricBuf: queue,
 		Publisher: publisher,
 		Config:    config,
-	}
+	}, nil
 }
 
 func (publisher *HyperpilotPublisher) Run() {
@@ -35,10 +31,8 @@ func (publisher *HyperpilotPublisher) Run() {
 		for {
 			select {
 			case metrics := <-publisher.MetricBuf:
-				// todo
-				log.Printf("%s", metrics)
+				// TODO
 				publisher.Publisher.Publish(metrics, publisher.Config)
-
 			}
 		}
 	}()

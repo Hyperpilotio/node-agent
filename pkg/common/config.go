@@ -26,12 +26,12 @@ type Publish struct {
 
 type NodeTask struct {
 	Schedule Schedule  `json:"schedule"`
-	Collect  Collect   `json:"collect"`
-	Process  Process   `json:"process"`
+	Collect  *Collect  `json:"collect"`
+	Process  *Process  `json:"process"`
 	Publish  *[]string `json:"publish"`
 }
 
 type TasksDefinition struct {
 	Tasks   []NodeTask `json:"tasks"`
-	Publish []Publish  `json:"publish"`
+	Publish []*Publish `json:"publish"`
 }

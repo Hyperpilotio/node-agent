@@ -1,65 +1,42 @@
-package collector
+package main
 
 import (
 	"errors"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/gobwas/glob"
+	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
+	"github.com/hyperpilotio/node-agent/pkg/processor"
 	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
 type HyperpilotTask struct {
 	Task      common.NodeTask
-	Collector snap.Collector
-	Processor snap.Processor
+	Collector collector.Collector
+	Processor processor.Processor
 	Publisher map[string]*publisher.HyperpilotPublisher
 }
 
-func NewHyperpilotTask(task common.NodeTask, publishers map[string]*publisher.HyperpilotPublisher) *HyperpilotTask {
-	collector := newCollector(task.Collect.PluginName)
-	processor := newProcessor(task.Process.PluginName)
+func NewHyperpilotTask(
+	task common.NodeTask,
+	collector collector.Collector,
+	processor processor.Processor,
+	publishers map[string]*publisher.HyperpilotPublisher) (*HyperpilotTask, error) {
 
 	return &HyperpilotTask{
-		Publisher: publishers,
 		Task:      task,
-		Processor: processor,
 		Collector: collector,
-	}
-}
-
-func newCollector(plugin string) snap.Collector {
-
-	var collector snap.Collector
-
-	switch plugin {
-	case "snap-plugin-collector-prometheus":
-		// collector = prometheus.New()
-	//case "snap-plugin-collector-docker":
-
-	default:
-		return nil
-	}
-	return collector
-}
-
-func newProcessor(plugin string) snap.Processor {
-	switch plugin {
-	case "snap-average-counter-processor":
-		// return agent.NewProcessor()
-	default:
-		return nil
-	}
-	return nil
+		Processor: processor,
+		Publisher: publishers,
+	}, nil
 }
 
 func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
-
-	tick := time.Tick(5 * time.Second)
-
+	waitTime, _ := time.ParseDuration(task.Task.Schedule.Interval)
+	tick := time.Tick(waitTime)
 	go func() {
 		for {
 			select {
@@ -75,17 +52,14 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 		}
 		wg.Done()
 	}()
-
 }
 
 func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
-
 	definition := task.Task
-
-	pattern, _ := glob.Compile(definition.Collect.Metrics)
-
-	log.Print(task.Collector)
-	log.Print(definition.Collect.Config)
+	pattern, err := glob.Compile(definition.Collect.Metrics)
+	if err != nil {
+		return nil, errors.New("Unable to compile collect namespace: " + err.Error())
+	}
 
 	metricTypes, err := task.Collector.GetMetricTypes(definition.Collect.Config)
 	if err != nil {
