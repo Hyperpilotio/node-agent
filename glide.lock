@@ -1,5 +1,5 @@
 hash: a7b5272895a0791cac4b0d0a0f0111785c50787d674e97e57d2407f0cc29e11d
-updated: 2018-01-10T15:02:11.952163314+08:00
+updated: 2018-01-10T10:10:52.110410231-08:00
 imports:
 - name: github.com/gobwas/glob
   version: bea32b9cd2d6f55753d94a28e959b13f0244797a
@@ -22,6 +22,10 @@ imports:
   subpackages:
   - unix
 testImports:
+- name: github.com/davecgh/go-spew
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  subpackages:
+  - spew
 - name: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/gopherjs/gopherjs
@@ -30,6 +34,10 @@ testImports:
   - js
 - name: github.com/jtolds/gls
   version: 77f18212c9c7edc9bd6a33d383a7b545ce62f064
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
 - name: github.com/smartystreets/assertions
   version: 4ea54c1f28ad3ae597e76607dea3871fa177e263
   subpackages:
@@ -41,3 +49,9 @@ testImports:
   - convey
   - convey/gotest
   - convey/reporting
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  subpackages:
+  - assert
+  - require
+  - suite

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/hyperpilotio/node-agent/pkg/collector/disk"
+	"github.com/hyperpilotio/node-agent/pkg/collector/cpu"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
@@ -15,13 +16,14 @@ type Collector interface {
 
 func NewCollector(name string) (Collector, error) {
 	switch name {
-	// case "cpu":
+	case "cpu":
+		return cpu.New()
 	case "disk":
 		return disk.New()
-	// case "docker":
-	// case "prometheus":
-	// case "psutil":
-	// case "use":
+		// case "docker":
+		// case "prometheus":
+		// case "psutil":
+		// case "use":
 	default:
 		return nil, errors.New("Unsupported collector type: " + name)
 	}
