@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
+	"github.com/hyperpilotio/node-agent/pkg/processor/average"
 )
 
 // Processor is a plugin which filters, aggregates, or decorates data in the
@@ -15,11 +16,7 @@ type Processor interface {
 func NewProcessor(name string) (Processor, error) {
 	switch name {
 	case "average":
-		// TODO
-		return nil, nil
-	case "agent":
-		// TODO
-		return nil, nil
+		return avg.NewProcessor(), nil
 	default:
 		return nil, errors.New("Unsupported processor type: " + name)
 	}
