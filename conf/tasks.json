@@ -1,0 +1,67 @@
+{
+  "tasks": [
+    {
+      "schedule": {
+        "interval": "5s"
+      },
+      "collect": {
+        "plugin": "snap-plugin-collector-docker",
+        "metrics": "/intel/docker/*/stats/cgroups/*",
+        "config": {
+          "endpoint": "unix:///var/run/docker.sock",
+          "procfs": "/proc"
+        },
+        "tags": {
+          "nodename": "",
+          "deploymentId": ""
+        }
+      },
+      "process": {
+        "plugin": "snap-average-counter-processor",
+        "config": {
+          "collect.namespaces": "default",
+          "collect.include_empty_namespace": true,
+          "collect.exclude_metrics": "*cpu_stats/cpu_shares, */cpuset_stats/*, */pids_stats/*, */cpu_usage/per_cpu/*",
+          "collect.exclude_metrics.except": "",
+          "average": "*/blkio_stats/*, */cpu_usage/*, */cpu_stats/throttling_data/*, */cgroups/memory_stats/*/failcnt, */cgroups/memory_stats/*/pgfault, */cgroups/memory_stats/*/pgmajfault, */cgroups/memory_stats/*/pgpgin, */cgroups/memory_stats/*/pgpgout, */cgroups/memory_stats/*/total_pgfault, */cgroups/memory_stats/*/total_pgmajfault, */cgroups/memory_stats/*/total_pgppin, */cgroups/memory_stats/*/total_pgpgout, */cgroups/hugetlb_stats/*/failcnt"
+        }
+      },
+      "publish": [
+        "influxsrv",
+        "influxsrv2"
+      ]
+    }
+  ],
+  "publish": [
+    {
+      "name": "influxsrv1",
+      "plugin": "snap-plugin-publisher-influxdb",
+      "config": {
+        "host": "",
+        "port": 8086,
+        "database": "snapaverage",
+        "user": "root",
+        "password": "default",
+        "retention": "autogen",
+        "scheme": "http",
+        "https": false,
+        "skip-verify": false
+      }
+    },
+    {
+      "name": "influxsrv2",
+      "plugin": "snap-plugin-publisher-influxdb",
+      "config": {
+        "host": "",
+        "port": 8186,
+        "database": "snapaverage",
+        "user": "root",
+        "password": "default",
+        "retention": "autogen",
+        "scheme": "http",
+        "https": false,
+        "skip-verify": false
+      }
+    }
+  ]
+}
