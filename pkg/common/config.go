@@ -1,6 +1,6 @@
 package common
 
-import snap "github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
+import "github.com/hyperpilotio/node-agent/pkg/snap"
 
 type Schedule struct {
 	Interval string `json:"interval"`

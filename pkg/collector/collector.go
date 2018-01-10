@@ -1,20 +1,15 @@
 package collector
 
 import (
-	snap "github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
-	"github.com/hyperpilotio/node-agent/pkg/publisher"
-	"time"
 	"errors"
-	"github.com/hyperpilotio/node-agent/pkg/common"
-	"github.com/gobwas/glob"
-	"github.com/hyperpilotio/snap-plugin-collector-prometheus/prometheus"
-	"github.com/hyperpilotio/snap-average-counter-processor/agent"
-
-	"github.com/intelsdi-x/snap-plugin-collector-docker/collector"
-
-
-	"sync"
 	"log"
+	"sync"
+	"time"
+
+	"github.com/gobwas/glob"
+	"github.com/hyperpilotio/node-agent/pkg/common"
+	"github.com/hyperpilotio/node-agent/pkg/publisher"
+	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
 type HyperpilotTask struct {
@@ -42,7 +37,7 @@ func newCollector(plugin string) snap.Collector {
 
 	switch plugin {
 	case "snap-plugin-collector-prometheus":
-		collector = prometheus.New()
+		// collector = prometheus.New()
 	//case "snap-plugin-collector-docker":
 
 	default:
@@ -54,7 +49,7 @@ func newCollector(plugin string) snap.Collector {
 func newProcessor(plugin string) snap.Processor {
 	switch plugin {
 	case "snap-average-counter-processor":
-		return agent.NewProcessor()
+		// return agent.NewProcessor()
 	default:
 		return nil
 	}

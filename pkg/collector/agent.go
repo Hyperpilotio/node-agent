@@ -1,12 +1,13 @@
 package collector
 
 import (
-	"github.com/hyperpilotio/node-agent/pkg/common"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"encoding/json"
-	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"sync"
+
+	"github.com/hyperpilotio/node-agent/pkg/common"
+	"github.com/hyperpilotio/node-agent/pkg/publisher"
 )
 
 type Agent struct {

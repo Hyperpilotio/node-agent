@@ -1,9 +1,9 @@
 package publisher
 
 import (
-	snap "github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 	"log"
-	"github.com/intelsdi-x/snap-plugin-publisher-influxdb/influxdb"
+
+	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
 type HyperpilotPublisher struct {
@@ -17,7 +17,7 @@ func NewHyperpilotPublisher(plugin string, config snap.Config) *HyperpilotPublis
 	var publisher snap.Publisher
 	switch plugin {
 	case "snap-plugin-publisher-influxdb":
-		publisher = influxdb.NewInfluxPublisher()
+		// publisher = influxdb.NewInfluxPublisher()
 	default:
 		log.Printf("not support publisher plugin")
 
