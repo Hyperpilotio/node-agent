@@ -18,6 +18,13 @@ import:
 - package: github.com/prometheus/common
   subpackages:
   - expfmt
+- package: github.com/shirou/gopsutil
+  subpackages:
+  - cpu
+  - disk
+  - load
+  - mem
+  - net
 - package: github.com/sirupsen/logrus
 testImport:
 - package: github.com/hyperpilotio/snap-plugin-collector-docker

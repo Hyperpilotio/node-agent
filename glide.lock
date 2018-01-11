@@ -1,5 +1,5 @@
-hash: 29d1133242e7a2adaf1ee4a201a3561a5dffdef3319f05dc78450285f54ecb92
-updated: 2018-01-11T14:26:10.914976519+08:00
+hash: 5904b51475a64999c82b27a7ec1dd01c31633474a50240a50f1a749c5597311b
+updated: 2018-01-11T15:19:34.214882562+08:00
 imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
@@ -21,6 +21,10 @@ imports:
   - external/github.com/docker/docker/pkg/units
   - external/github.com/docker/docker/volume
   - external/github.com/opencontainers/runc/libcontainer/user
+- name: github.com/go-ole/go-ole
+  version: a41e3c4b706f6ae8dfbff342b06e40fa4d2d0506
+  subpackages:
+  - oleutil
 - name: github.com/gobwas/glob
   version: bea32b9cd2d6f55753d94a28e959b13f0244797a
   subpackages:
@@ -69,8 +73,19 @@ imports:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
   - model
+- name: github.com/shirou/gopsutil
+  version: 7ec06ec280df1dd1f08befc535049d49d63ae18a
+  subpackages:
+  - cpu
+  - disk
+  - internal/common
+  - load
+  - mem
+  - net
 - name: github.com/sirupsen/logrus
   version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
+- name: github.com/StackExchange/wmi
+  version: ea383cf3ba6ec950874b8486cd72356d007c768f
 - name: golang.org/x/crypto
   version: aedad9a179ec1ea11b7064c57cbc6dc30d7724ec
   subpackages:
@@ -79,6 +94,7 @@ imports:
   version: 90796e5a05ce440b41c768bd9af257005e470461
   subpackages:
   - unix
+  - windows
 testImports:
 - name: github.com/davecgh/go-spew
   version: 346938d642f2ec3594ed81d874461961cd0faa76
