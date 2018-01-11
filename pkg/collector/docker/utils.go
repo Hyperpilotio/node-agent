@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker/container"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )

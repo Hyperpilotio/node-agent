@@ -4,12 +4,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
 	"fmt"
 	"strconv"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
-
 	"github.com/pkg/errors"
 )
 

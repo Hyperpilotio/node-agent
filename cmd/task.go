@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 	"time"
+	"fmt"
 
 	"github.com/gobwas/glob"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
@@ -11,7 +12,7 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/processor"
 	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
-	"fmt"
+	log "github.com/sirupsen/logrus"
 )
 
 type HyperpilotTask struct {
@@ -19,7 +20,7 @@ type HyperpilotTask struct {
 	Id        string
 	Collector collector.Collector
 	Processor processor.Processor
-	Publisher map[string]*publisher.HyperpilotPublisher
+	Publisher []*publisher.HyperpilotPublisher
 }
 
 func NewHyperpilotTask(
@@ -29,12 +30,24 @@ func NewHyperpilotTask(
 	processor processor.Processor,
 	publishers map[string]*publisher.HyperpilotPublisher) (*HyperpilotTask, error) {
 
+	var pubs []*publisher.HyperpilotPublisher
+
+	for _, pubId := range *task.Publish {
+		p, ok := publishers[pubId]
+		if ok {
+			log.Infof("Publisher {%s} is loaded for Task {%s}", pubId, task.Id)
+			pubs = append(pubs, p)
+		} else {
+			log.Warnf("Publisher {%s} is not loaded, skip", pubId)
+		}
+	}
+
 	return &HyperpilotTask{
 		Task:      task,
 		Id:        id,
 		Collector: collector,
 		Processor: processor,
-		Publisher: publishers,
+		Publisher: pubs,
 	}, nil
 }
 

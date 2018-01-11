@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
-
 	"github.com/shirou/gopsutil/net"
 )
 

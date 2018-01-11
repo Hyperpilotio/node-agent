@@ -30,6 +30,21 @@
       "config": {
         "file": "/tmp/node-agent-collect-disk.json"
       }
+    },
+    {
+      "id": "influxsrv2",
+      "plugin": "influxdb",
+      "config": {
+        "host": "",
+        "port": 8186,
+        "database": "snapaverage",
+        "user": "root",
+        "password": "default",
+        "retention": "autogen",
+        "scheme": "http",
+        "https": false,
+        "skip-verify": false
+      }
     }
   ]
 }

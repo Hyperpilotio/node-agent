@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
 	"fmt"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"

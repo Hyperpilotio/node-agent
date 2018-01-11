@@ -12,7 +12,6 @@ import (
 
 	client "github.com/influxdata/influxdb/client/v2"
 	log "github.com/sirupsen/logrus"
-
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 

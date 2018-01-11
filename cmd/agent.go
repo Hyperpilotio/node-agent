@@ -42,7 +42,7 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 
 	log.Printf("%d Puslisher are configured to load", len(taskDef.Publish))
 	for _, p := range taskDef.Publish {
-		log.Printf("name = {%s}, type = {%s}", p.Id, p.PluginName)
+		log.Printf("Publisher id = {%s}, type = {%s}", p.Id, p.PluginName)
 	}
 
 	return &NodeAgent{
