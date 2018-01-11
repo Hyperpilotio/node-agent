@@ -15,13 +15,10 @@ type Publisher interface {
 
 func NewPublisher(name string) (Publisher, error) {
 	switch name {
-	// case "cpu":
 	case "file":
 		return file.New(), nil
-	// case "docker":
-	// case "prometheus":
-	// case "psutil":
-	// case "use":
+	case "influxdb":
+		return nil, nil
 	default:
 		return nil, errors.New("Unsupported publisher type: " + name)
 	}

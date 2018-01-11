@@ -20,10 +20,14 @@ func NewCollector(name string) (Collector, error) {
 		return cpu.New()
 	case "disk":
 		return disk.New()
-		// case "docker":
-		// case "prometheus":
-		// case "psutil":
-		// case "use":
+	case "docker":
+		return nil, nil
+	case "prometheus":
+		return nil, nil
+	case "psutil":
+		return nil, nil
+	case "use":
+		return nil, nil
 	default:
 		return nil, errors.New("Unsupported collector type: " + name)
 	}

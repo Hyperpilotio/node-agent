@@ -2,14 +2,21 @@ package main
 
 import (
 	"sync"
+	"flag"
+
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	path := "/etc/node_agent/disk-task-test.json"
-	//path := "./conf/disk-task-test.json"
 
-	nodeAgent, err := NewNodeAgent(path)
+	configPath := flag.String("config", "", "The file path to a config file")
+	flag.Parse()
+
+	if *configPath == "" {
+		*configPath = "/etc/node_agent/tasks.json"
+	}
+
+	nodeAgent, err := NewNodeAgent(*configPath)
 	if err != nil {
 		log.Printf("create agent fail: %s", err.Error())
 		return
@@ -22,5 +29,6 @@ func main() {
 	// use wg to wait
 	taskWg := &sync.WaitGroup{}
 	nodeAgent.Run(taskWg)
+	log.Printf("Node Agent start running...")
 	taskWg.Wait()
 }

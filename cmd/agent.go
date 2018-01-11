@@ -11,6 +11,7 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
+	log "github.com/sirupsen/logrus"
 )
 
 type NodeAgent struct {
@@ -29,6 +30,20 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 	taskDef := &common.TasksDefinition{}
 	if err := json.Unmarshal(b, taskDef); err != nil {
 		return nil, fmt.Errorf("Unable to unmarshal json to TasksDefinition: %s", err.Error())
+	}
+
+	log.Printf("Load %d Task", len(taskDef.Tasks))
+	for i, task := range taskDef.Tasks {
+		if task.Process != nil {
+			log.Printf("Task %d: collect={%s}, process={%s}, publisher = %s", i+1, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
+		} else {
+			log.Printf("Task %d: collect={%s}, publisher = %s", i+1, task.Collect.PluginName, *task.Publish)
+		}
+	}
+
+	log.Printf("Load %d Puslisher", len(taskDef.Publish))
+	for _, p := range taskDef.Publish {
+		log.Printf("name = {%s}, type = {%s}", p.Name, p.PluginName)
 	}
 
 	return &NodeAgent{

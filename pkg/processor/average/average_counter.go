@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
-	//"github.com/hyperpilotio/node-agent/pkg/processor"
 	"github.com/sirupsen/logrus"
 	"github.com/gobwas/glob"
 )
