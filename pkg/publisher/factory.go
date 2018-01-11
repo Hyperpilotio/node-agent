@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/hyperpilotio/node-agent/pkg/publisher/file"
+	"github.com/hyperpilotio/node-agent/pkg/publisher/influxdb"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
@@ -13,13 +14,15 @@ type Publisher interface {
 	Publish([]snap.Metric, snap.Config) error
 }
 
-func NewPublisher(name string) (Publisher, error) {
+func NewPublisher(name string, cfg snap.Config) (Publisher, snap.Config, error) {
 	switch name {
 	case "file":
-		return file.New(), nil
+		return file.New(), cfg, nil
 	case "influxdb":
-		return nil, nil
+		newCfg := cfg
+		newCfg["port"] = int64(cfg["port"].(float64))
+		return influxdb.NewInfluxPublisher(), newCfg, nil
 	default:
-		return nil, errors.New("Unsupported publisher type: " + name)
+		return nil, nil, errors.New("Unsupported publisher type: " + name)
 	}
 }

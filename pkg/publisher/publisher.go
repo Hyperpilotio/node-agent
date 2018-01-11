@@ -13,7 +13,7 @@ type HyperpilotPublisher struct {
 }
 
 func NewHyperpilotPublisher(pluginName string, config snap.Config) (*HyperpilotPublisher, error) {
-	publisher, err := NewPublisher(pluginName)
+	publisher, cfg, err := NewPublisher(pluginName, config)
 	if err != nil {
 		return nil, errors.New("Unable to create publisher: " + err.Error())
 	}
@@ -22,7 +22,7 @@ func NewHyperpilotPublisher(pluginName string, config snap.Config) (*HyperpilotP
 	return &HyperpilotPublisher{
 		MetricBuf: queue,
 		Publisher: publisher,
-		Config:    config,
+		Config:    cfg,
 	}, nil
 }
 
