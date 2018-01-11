@@ -15,9 +15,11 @@ import (
 )
 
 type NodeAgent struct {
-	Config *common.TasksDefinition
-	Tasks  map[string]*HyperpilotTask
-	mutex  sync.Mutex
+	Config        *common.TasksDefinition
+	taskLock      sync.Mutex
+	Tasks         map[string]*HyperpilotTask
+	publisherLock sync.Mutex
+	Publishers    map[string]*publisher.HyperpilotPublisher
 }
 
 func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
@@ -46,21 +48,29 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 	}
 
 	return &NodeAgent{
-		Config: taskDef,
-		Tasks:  make(map[string]*HyperpilotTask),
+		Config:     taskDef,
+		Tasks:      make(map[string]*HyperpilotTask),
+		Publishers: make(map[string]*publisher.HyperpilotPublisher),
 	}, nil
 }
 
 func (nodeAgent *NodeAgent) Init() error {
 	// init publisher first
-	publishers := make(map[string]*publisher.HyperpilotPublisher)
 	for _, p := range nodeAgent.Config.Publish {
 		hpPublisher, err := publisher.NewHyperpilotPublisher(p.PluginName, p.Config)
 		if err != nil {
 			return errors.New("Unable to new hyperpilot publisher:" + err.Error())
 		}
-		publishers[p.Id] = hpPublisher
 		hpPublisher.Run()
+
+		nodeAgent.publisherLock.Lock()
+		if _, ok := nodeAgent.Publishers[p.Id]; ok {
+			log.Warnf("Publisher id {%s}, (type {%s}) is duplicated, skip this publisher", p.Id, p.PluginName)
+			nodeAgent.publisherLock.Unlock()
+			continue
+		}
+		nodeAgent.Publishers[p.Id] = hpPublisher
+		nodeAgent.publisherLock.Unlock()
 	}
 
 	// init all tasks
@@ -80,18 +90,18 @@ func (nodeAgent *NodeAgent) Init() error {
 			}
 		}
 
-		newTask, err := NewHyperpilotTask(task, task.Id, taskCollector, taskProcessor, publishers)
+		newTask, err := NewHyperpilotTask(task, task.Id, taskCollector, taskProcessor, nodeAgent.Publishers)
 		if err != nil {
 			return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
 		}
-		nodeAgent.mutex.Lock()
+		nodeAgent.taskLock.Lock()
 		if _, ok := nodeAgent.Tasks[task.Id]; ok {
 			log.Warnf("Task id {%s} is duplicated, skip this task", task.Id)
-			nodeAgent.mutex.Unlock()
+			nodeAgent.taskLock.Unlock()
 			continue
 		}
 		nodeAgent.Tasks[task.Id] = newTask
-		nodeAgent.mutex.Unlock()
+		nodeAgent.taskLock.Unlock()
 
 	}
 	return nil
