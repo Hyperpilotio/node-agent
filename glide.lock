@@ -1,5 +1,5 @@
 hash: a7b5272895a0791cac4b0d0a0f0111785c50787d674e97e57d2407f0cc29e11d
-updated: 2018-01-10T10:10:52.110410231-08:00
+updated: 2018-01-11T10:05:16.843872985+08:00
 imports:
 - name: github.com/gobwas/glob
   version: bea32b9cd2d6f55753d94a28e959b13f0244797a
@@ -11,6 +11,32 @@ imports:
   - syntax/lexer
   - util/runes
   - util/strings
+- name: github.com/golang/glog
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+- name: github.com/golang/protobuf
+  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+  subpackages:
+  - proto
+- name: github.com/influxdata/influxdb
+  version: 4244d0e0536be53aab18160cd57e59190d57a693
+  subpackages:
+  - client/v2
+  - models
+  - pkg/escape
+- name: github.com/matttproud/golang_protobuf_extensions
+  version: d0c3fe89de86839aecf2e0579c40ba3bb336a453
+  subpackages:
+  - pbutil
+- name: github.com/prometheus/client_model
+  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
+  subpackages:
+  - go
+- name: github.com/prometheus/common
+  version: e8eabff8812b05acf522b45fdcd725a785188e37
+  subpackages:
+  - expfmt
+  - internal/bitbucket.org/ww/goautoneg
+  - model
 - name: github.com/sirupsen/logrus
   version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
 - name: golang.org/x/crypto
@@ -23,11 +49,9 @@ imports:
   - unix
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
-- name: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/gopherjs/gopherjs
   version: 2b1d432c8a82c9bff0b0baffaeb3ec6e92974112
   subpackages:
@@ -50,7 +74,7 @@ testImports:
   - convey/gotest
   - convey/reporting
 - name: github.com/stretchr/testify
-  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  version: b91bfb9ebec76498946beb6af7c0230c7cc7ba6c
   subpackages:
   - assert
   - require
