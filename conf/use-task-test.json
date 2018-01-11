@@ -1,0 +1,34 @@
+{
+  "tasks": [
+    {
+      "schedule": {
+        "interval": "5s"
+      },
+      "collect": {
+        "plugin": "use",
+        "metrics": {
+          "/intel/use/compute/saturation": {},
+          "/intel/use/compute/utilization": {},
+          "/intel/use/memory/saturation": {},
+          "/intel/use/memory/utilization": {},
+          "/intel/use/network/eth0/saturation": {},
+          "/intel/use/network/eth0/utilization": {},
+          "/intel/use/storage/sda/saturation": {},
+          "/intel/use/storage/sda/utilization": {}
+        }
+      },
+      "publish": [
+        "json"
+      ]
+    }
+  ],
+  "publish": [
+    {
+      "name": "json",
+      "plugin": "file",
+      "config": {
+        "file": "/tmp/node-agent-collect-disk.json"
+      }
+    }
+  ]
+}

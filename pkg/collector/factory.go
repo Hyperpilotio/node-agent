@@ -9,6 +9,7 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/collector/prometheus"
 	"github.com/hyperpilotio/node-agent/pkg/collector/psutil"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
+	"github.com/hyperpilotio/node-agent/pkg/collector/use"
 )
 
 // Collector is a plugin which is the source of new data in the Snap pipeline.
@@ -30,7 +31,7 @@ func NewCollector(name string) (Collector, error) {
 	case "psutil":
 		return psutil.New()
 	case "use":
-		return nil, nil
+		return use.New()
 	default:
 		return nil, errors.New("Unsupported collector type: " + name)
 	}

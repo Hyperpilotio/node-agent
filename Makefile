@@ -14,7 +14,7 @@ build:
 	rm -rf bin/*
 	go build -v -i -o bin/$(AGENT_NAME) ./cmd
 
-build-in-docker:
+build-release:
 	rm -rf bin/*
 	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/linux/$(AGENT_NAME) ./cmd
 
