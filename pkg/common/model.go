@@ -37,6 +37,6 @@ type NodeTask struct {
 }
 
 type TasksDefinition struct {
-	Tasks   []NodeTask `json:"tasks"`
+	Tasks   []*NodeTask `json:"tasks"`
 	Publish []*Publish `json:"publish"`
 }
