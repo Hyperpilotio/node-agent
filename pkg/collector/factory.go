@@ -5,6 +5,7 @@ import (
 
 	"github.com/hyperpilotio/node-agent/pkg/collector/disk"
 	"github.com/hyperpilotio/node-agent/pkg/collector/cpu"
+	"github.com/hyperpilotio/node-agent/pkg/collector/prometheus"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
 
@@ -23,7 +24,7 @@ func NewCollector(name string) (Collector, error) {
 	case "docker":
 		return nil, nil
 	case "prometheus":
-		return nil, nil
+		return prometheus.New()
 	case "psutil":
 		return nil, nil
 	case "use":

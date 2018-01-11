@@ -108,15 +108,6 @@ func New() (*CPUCollector, error) {
 	}, nil
 }
 
-// GetConfigPolicy returns config policy
-// It returns error in case retrieval was not successful
-//func (p *CPUCollector) GetConfigPolicy() (plugin.ConfigPolicy, error) {
-//	policy := plugin.NewConfigPolicy()
-//	policy.AddNewStringRule([]string{vendor, fs, Name}, "proc_path", false, plugin.SetDefaultString(defaultProcPath))
-//
-//	return *policy, nil
-//}
-
 // GetMetricTypes returns list of available metric types
 // It returns error in case retrieval was not successful
 func (p *CPUCollector) GetMetricTypes(cfg snap.Config) ([]snap.Metric, error) {
