@@ -16,6 +16,7 @@ import (
 
 type HyperpilotTask struct {
 	Task      common.NodeTask
+	Id        string
 	Collector collector.Collector
 	Processor processor.Processor
 	Publisher map[string]*publisher.HyperpilotPublisher
@@ -23,12 +24,14 @@ type HyperpilotTask struct {
 
 func NewHyperpilotTask(
 	task common.NodeTask,
+	id string,
 	collector collector.Collector,
 	processor processor.Processor,
 	publishers map[string]*publisher.HyperpilotPublisher) (*HyperpilotTask, error) {
 
 	return &HyperpilotTask{
 		Task:      task,
+		Id:        id,
 		Collector: collector,
 		Processor: processor,
 		Publisher: publishers,

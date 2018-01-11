@@ -1,6 +1,7 @@
 {
   "tasks": [
     {
+      "id": "task1",
       "schedule": {
         "interval": "5s"
       },
@@ -34,7 +35,7 @@
   ],
   "publish": [
     {
-      "name": "influxsrv1",
+      "id": "influxsrv1",
       "plugin": "snap-plugin-publisher-influxdb",
       "config": {
         "host": "",
@@ -49,7 +50,7 @@
       }
     },
     {
-      "name": "influxsrv2",
+      "id": "influxsrv2",
       "plugin": "snap-plugin-publisher-influxdb",
       "config": {
         "host": "",

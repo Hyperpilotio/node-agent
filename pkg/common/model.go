@@ -24,11 +24,12 @@ type Process struct {
 
 type Publish struct {
 	PluginName string      `json:"plugin"`
-	Name       string      `json:"name"`
+	Id         string      `json:"id"`
 	Config     snap.Config `json:"config"`
 }
 
 type NodeTask struct {
+	Id       string    `json:"id"`
 	Schedule Schedule  `json:"schedule"`
 	Collect  *Collect  `json:"collect"`
 	Process  *Process  `json:"process"`

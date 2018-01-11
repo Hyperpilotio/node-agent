@@ -1,6 +1,7 @@
 {
     "tasks": [
       {
+        "id": "task2",
         "schedule": {
           "interval": "5s"
         },
@@ -19,6 +20,7 @@
         ]
       },
       {
+        "id": "task2",
         "schedule": {
           "interval": "5s"
         },
@@ -37,6 +39,7 @@
         ]
       },
       {
+        "id": "task3",
         "schedule": {
           "interval": "5s"
         },
@@ -55,6 +58,7 @@
         ]
       },
       {
+        "id": "task4",
         "schedule": {
           "interval": "5s"
         },
@@ -75,7 +79,7 @@
     ],
     "publish": [
       {
-        "name": "influxdb",
+        "id": "influxdb",
         "plugin": "influxdb",
         "config": {
           "host": "localhost",

@@ -1,6 +1,7 @@
 {
   "tasks": [
     {
+      "id": "task1",
       "schedule": {
         "interval": "5s"
       },
@@ -22,7 +23,7 @@
   ],
   "publish": [
     {
-      "name": "json",
+      "id": "json",
       "plugin": "file",
       "config": {
         "file": "/tmp/node-agent-collect-disk.json"

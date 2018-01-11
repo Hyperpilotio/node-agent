@@ -16,9 +16,8 @@ import (
 
 type NodeAgent struct {
 	Config *common.TasksDefinition
-	Tasks  []*HyperpilotTask
-
-	mutex sync.Mutex
+	Tasks  map[string]*HyperpilotTask
+	mutex  sync.Mutex
 }
 
 func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
@@ -32,22 +31,23 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 		return nil, fmt.Errorf("Unable to unmarshal json to TasksDefinition: %s", err.Error())
 	}
 
-	log.Printf("Load %d Task", len(taskDef.Tasks))
-	for i, task := range taskDef.Tasks {
+	log.Printf("%d Tasks are configured to load: ", len(taskDef.Tasks))
+	for _, task := range taskDef.Tasks {
 		if task.Process != nil {
-			log.Printf("Task %d: collect={%s}, process={%s}, publisher = %s", i+1, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
+			log.Printf("Task {%s}: collect={%s}, process={%s}, publisher = %s", task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
 		} else {
-			log.Printf("Task %d: collect={%s}, publisher = %s", i+1, task.Collect.PluginName, *task.Publish)
+			log.Printf("Task {%s}: collect={%s}, publisher = %s", task.Id, task.Collect.PluginName, *task.Publish)
 		}
 	}
 
-	log.Printf("Load %d Puslisher", len(taskDef.Publish))
+	log.Printf("%d Puslisher are configured to load", len(taskDef.Publish))
 	for _, p := range taskDef.Publish {
-		log.Printf("name = {%s}, type = {%s}", p.Name, p.PluginName)
+		log.Printf("name = {%s}, type = {%s}", p.Id, p.PluginName)
 	}
 
 	return &NodeAgent{
 		Config: taskDef,
+		Tasks:  make(map[string]*HyperpilotTask),
 	}, nil
 }
 
@@ -59,7 +59,7 @@ func (nodeAgent *NodeAgent) Init() error {
 		if err != nil {
 			return errors.New("Unable to new hyperpilot publisher:" + err.Error())
 		}
-		publishers[p.Name] = hpPublisher
+		publishers[p.Id] = hpPublisher
 		hpPublisher.Run()
 	}
 
@@ -68,7 +68,7 @@ func (nodeAgent *NodeAgent) Init() error {
 		collectName := task.Collect.PluginName
 		taskCollector, err := collector.NewCollector(collectName)
 		if err != nil {
-			return fmt.Errorf("Unable to new collector for %s: %s", collectName, err.Error())
+			return fmt.Errorf("unable to new %s collector for task %s: %s", collectName, task.Id, err.Error())
 		}
 
 		var taskProcessor processor.Processor
@@ -76,15 +76,23 @@ func (nodeAgent *NodeAgent) Init() error {
 			processName := task.Process.PluginName
 			taskProcessor, err = processor.NewProcessor(processName)
 			if err != nil {
-				return fmt.Errorf("Unable to new processor for %s: %s", processName, err.Error())
+				return fmt.Errorf("unable to new %s processor for task %s: %s", processName, task.Id, err.Error())
 			}
 		}
 
-		t, err := NewHyperpilotTask(task, taskCollector, taskProcessor, publishers)
+		newTask, err := NewHyperpilotTask(task, task.Id, taskCollector, taskProcessor, publishers)
 		if err != nil {
-			return errors.New("Unable to new hyperpilot snap task:" + err.Error())
+			return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
 		}
-		nodeAgent.Tasks = append(nodeAgent.Tasks, t)
+		nodeAgent.mutex.Lock()
+		if _, ok := nodeAgent.Tasks[task.Id]; ok {
+			log.Warnf("Task id {%s} is duplicated, skip this task", task.Id)
+			nodeAgent.mutex.Unlock()
+			continue
+		}
+		nodeAgent.Tasks[task.Id] = newTask
+		nodeAgent.mutex.Unlock()
+
 	}
 	return nil
 }
