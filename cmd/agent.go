@@ -107,7 +107,7 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 
 func (nodeAgent *NodeAgent) CreatePublisher(p *common.Publish) error {
 	nodeAgent.publisherLock.Lock()
-	defer nodeAgent.publisherLock.Lock()
+	defer nodeAgent.publisherLock.Unlock()
 
 	hpPublisher, err := publisher.NewHyperpilotPublisher(p.PluginName, p.Config)
 	if err != nil {
