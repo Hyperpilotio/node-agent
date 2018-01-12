@@ -52,7 +52,12 @@ func NewHyperpilotTask(
 }
 
 func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
-	waitTime, _ := time.ParseDuration(task.Task.Schedule.Interval)
+	waitTime, err := time.ParseDuration(task.Task.Schedule.Interval)
+	if err != nil {
+		log.Warnf("Parse schedule interval {%s} fail, use default interval 5 seconds",
+			task.Task.Schedule.Interval, err.Error())
+		waitTime = 5 * time.Second
+	}
 	tick := time.Tick(waitTime)
 	go func() {
 		for {
