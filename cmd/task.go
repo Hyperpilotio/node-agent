@@ -21,7 +21,7 @@ type HyperpilotTask struct {
 	Collector      collector.Collector
 	Processor      processor.Processor
 	Publisher      []*publisher.HyperpilotPublisher
-	metricPatterns []glob.Glob
+	MetricPatterns []glob.Glob
 }
 
 func NewHyperpilotTask(
@@ -56,7 +56,7 @@ func NewHyperpilotTask(
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Unable to compile collect namespace {%s}: ", name, err.Error()))
 		}
-		hypterpilotTask.metricPatterns = append(hypterpilotTask.metricPatterns, pattern)
+		hypterpilotTask.MetricPatterns = append(hypterpilotTask.MetricPatterns, pattern)
 	}
 
 	return &hypterpilotTask, nil
@@ -97,7 +97,7 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	newMetricTypes := []snap.Metric{}
 	for _, mts := range metricTypes {
 		mts.Config = definition.Collect.Config
-		for _, pattern := range task.metricPatterns {
+		for _, pattern := range task.MetricPatterns {
 			if pattern.Match(mts.Namespace.String()) {
 				newMetricTypes = append(newMetricTypes, mts)
 				break
