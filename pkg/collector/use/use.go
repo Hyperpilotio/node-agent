@@ -1,11 +1,14 @@
 package use
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"time"
 
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -29,6 +32,10 @@ var (
 // Use contains values of previous measurments
 type Use struct {
 	host string
+}
+
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
 }
 
 // NewUseCollector returns Use struct

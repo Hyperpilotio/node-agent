@@ -7,13 +7,15 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
-	"github.com/golang/glog"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -37,6 +39,10 @@ type HTTPMetricsDownloader struct {
 // PrometheusCollector struct
 type PrometheusCollector struct {
 	Downloader MetricsDownloader
+}
+
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
 }
 
 // New return an instance of PrometheusCollector
@@ -73,7 +79,7 @@ func (c *PrometheusCollector) _collectMetrics(mts []snap.Metric) ([]snap.Metric,
 
 	metricFamilies, err := c.Collect(endpoint)
 	if err != nil {
-		glog.Warningf("Unable to collect metrics, skipping to next cycle. endpoint: %s, error: %s", endpoint, err.Error())
+		log.Warningf("Unable to collect metrics, skipping to next cycle. endpoint: %s, error: %s", endpoint, err.Error())
 		return metrics, nil
 	}
 
@@ -148,7 +154,7 @@ func processSummaryMetric(metric *dto.Metric) (map[string]float64, error) {
 		if !math.IsNaN(quantile.GetValue()) {
 			summary[key] = quantile.GetValue()
 		} else {
-			glog.Warningf("Skipping to write metric %s as it's value is NaN", key)
+			log.Warningf("Skipping to write metric %s as it's value is NaN", key)
 		}
 	}
 

@@ -2,12 +2,18 @@ package psutil
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
 )
+
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
+}
 
 func New() (*Psutil, error) {
 	return &Psutil{}, nil
