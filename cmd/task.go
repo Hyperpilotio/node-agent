@@ -16,11 +16,12 @@ import (
 )
 
 type HyperpilotTask struct {
-	Task      *common.NodeTask
-	Id        string
-	Collector collector.Collector
-	Processor processor.Processor
-	Publisher []*publisher.HyperpilotPublisher
+	Task           *common.NodeTask
+	Id             string
+	Collector      collector.Collector
+	Processor      processor.Processor
+	Publisher      []*publisher.HyperpilotPublisher
+	metricPatterns []glob.Glob
 }
 
 func NewHyperpilotTask(
@@ -42,13 +43,23 @@ func NewHyperpilotTask(
 		}
 	}
 
-	return &HyperpilotTask{
+	hypterpilotTask := HyperpilotTask{
 		Task:      task,
 		Id:        id,
 		Collector: collector,
 		Processor: processor,
 		Publisher: pubs,
-	}, nil
+	}
+
+	for name := range task.Collect.Metrics {
+		pattern, err := glob.Compile(name)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Unable to compile collect namespace {%s}: ", name, err.Error()))
+		}
+		hypterpilotTask.metricPatterns = append(hypterpilotTask.metricPatterns, pattern)
+	}
+
+	return &hypterpilotTask, nil
 }
 
 func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
@@ -78,19 +89,6 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 
 func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	definition := task.Task
-
-	var patterns []glob.Glob
-
-	for name, _ := range definition.Collect.Metrics {
-		pattern, err := glob.Compile(name)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Unable to compile collect namespace {%s}: ", name, err.Error()))
-		}
-
-		patterns = append(patterns, pattern)
-
-	}
-
 	metricTypes, err := task.Collector.GetMetricTypes(definition.Collect.Config)
 	if err != nil {
 		return nil, errors.New("Unable to get metric types: " + err.Error())
@@ -99,7 +97,7 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	newMetricTypes := []snap.Metric{}
 	for _, mts := range metricTypes {
 		mts.Config = definition.Collect.Config
-		for _, pattern := range patterns {
+		for _, pattern := range task.metricPatterns {
 			if pattern.Match(mts.Namespace.String()) {
 				newMetricTypes = append(newMetricTypes, mts)
 				break
