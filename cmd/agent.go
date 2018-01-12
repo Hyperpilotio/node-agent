@@ -33,18 +33,18 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 		return nil, fmt.Errorf("Unable to unmarshal json to TasksDefinition: %s", err.Error())
 	}
 
-	log.Printf("%d Tasks are configured to load: ", len(taskDef.Tasks))
+	log.Infof("%d Tasks are configured to load: ", len(taskDef.Tasks))
 	for _, task := range taskDef.Tasks {
 		if task.Process != nil {
-			log.Printf("Task {%s}: collect={%s}, process={%s}, publisher = %s", task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
+			log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s", task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
 		} else {
-			log.Printf("Task {%s}: collect={%s}, publisher = %s", task.Id, task.Collect.PluginName, *task.Publish)
+			log.Infof("Task {%s}: collect={%s}, publisher = %s", task.Id, task.Collect.PluginName, *task.Publish)
 		}
 	}
 
-	log.Printf("%d Puslisher are configured to load", len(taskDef.Publish))
+	log.Infof("%d Puslisher are configured to load", len(taskDef.Publish))
 	for _, p := range taskDef.Publish {
-		log.Printf("Publisher id = {%s}, type = {%s}", p.Id, p.PluginName)
+		log.Infof("Publisher id = {%s}, type = {%s}", p.Id, p.PluginName)
 	}
 
 	return &NodeAgent{
