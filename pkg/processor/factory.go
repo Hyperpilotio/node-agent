@@ -2,10 +2,17 @@ package processor
 
 import (
 	"errors"
+	"os"
 
-	"github.com/hyperpilotio/node-agent/pkg/snap"
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor/average"
+	"github.com/hyperpilotio/node-agent/pkg/snap"
+	log "github.com/sirupsen/logrus"
 )
+
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
+}
 
 // Processor is a plugin which filters, aggregates, or decorates data in the
 // Snap pipeline.

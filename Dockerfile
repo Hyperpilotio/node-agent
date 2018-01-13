@@ -1,7 +1,19 @@
-FROM ubuntu:xenial
-RUN apt-get update && apt-get -y install curl
-RUN mkdir -p /etc/node_agent
+FROM ubuntu:16.04
 
-COPY ./bin/linux/node-agent .
-COPY ./conf/use-task-test.json /etc/node_agent/tasks.json
-CMD ["./node-agent"]
+RUN mkdir -p /etc/node_agent
+RUN apt-get update > /dev/null && \
+    apt-get install -y curl gcc python-dev python-pip \
+    jq python python-dev build-essential \
+    linux-tools-common linux-tools-generic sysstat && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY run.sh /usr/local/bin/run.sh
+COPY ./bin/linux/node-agent node-agent
+COPY nodeAgent_init.py nodeAgent_init.py
+
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt && mkdir -p /usr/host
+
+EXPOSE 8181
+
+ENTRYPOINT ["/usr/local/bin/run.sh"]

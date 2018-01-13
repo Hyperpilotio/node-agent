@@ -2,9 +2,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
-	"fmt"
 
 	"github.com/gobwas/glob"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
@@ -22,6 +23,7 @@ type HyperpilotTask struct {
 	Processor      processor.Processor
 	Publisher      []*publisher.HyperpilotPublisher
 	MetricPatterns []glob.Glob
+	CusTags       map[string]string
 }
 
 func NewHyperpilotTask(
@@ -43,12 +45,20 @@ func NewHyperpilotTask(
 		}
 	}
 
+	userCustTags := make(map[string]string)
+	for _, entries := range task.Collect.Tags {
+		for k, v := range entries {
+			userCustTags[k] = v
+		}
+	}
+
 	hypterpilotTask := HyperpilotTask{
 		Task:      task,
 		Id:        id,
 		Collector: collector,
 		Processor: processor,
 		Publisher: pubs,
+		CusTags:  userCustTags,
 	}
 
 	for name := range task.Collect.Metrics {
@@ -80,7 +90,7 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 					continue
 				}
 				if task.Processor != nil {
-					metrics, _ = task.process(metrics)
+					metrics, _ = task.process(metrics, task.Task.Process.Config)
 				}
 				for _, publish := range task.Publisher {
 					publish.Put(metrics)
@@ -93,17 +103,33 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 
 func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	definition := task.Task
+
 	metricTypes, err := task.Collector.GetMetricTypes(definition.Collect.Config)
 	if err != nil {
 		return nil, errors.New("Unable to get metric types: " + err.Error())
 	}
 
 	newMetricTypes := []snap.Metric{}
-	for _, mts := range metricTypes {
-		mts.Config = definition.Collect.Config
+	for _, mt := range metricTypes {
+		mt.Config = definition.Collect.Config
+		namespace := mt.Namespace.String()
+		if mt.Tags == nil {
+			mt.Tags = make(map[string]string)
+		}
+
+		for k, v := range task.CusTags {
+			mt.Tags[k] = v
+		}
+
 		for _, pattern := range task.MetricPatterns {
-			if pattern.Match(mts.Namespace.String()) {
-				newMetricTypes = append(newMetricTypes, mts)
+			if pattern.Match(namespace) {
+				newMetricTypes = append(newMetricTypes, mt)
+				break
+			}
+		}
+		for name, _ := range definition.Collect.Metrics {
+			if strings.HasPrefix(name, namespace) {
+				newMetricTypes = append(newMetricTypes, mt)
 				break
 			}
 		}
@@ -121,6 +147,6 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	return collectMetrics, nil
 }
 
-func (task *HyperpilotTask) process(mts []snap.Metric) ([]snap.Metric, error) {
-	return task.Processor.Process(mts, nil)
+func (task *HyperpilotTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
+	return task.Processor.Process(mts, cfg)
 }

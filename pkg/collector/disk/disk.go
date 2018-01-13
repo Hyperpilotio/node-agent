@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
 )
@@ -78,6 +79,10 @@ var (
 	ignoreLoopback = false
 	ignoreRAM      = false
 )
+
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
+}
 
 // New returns snap-plugin-collector-disk instance
 func New() (*DiskCollector, error) {

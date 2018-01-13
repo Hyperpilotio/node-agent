@@ -2,18 +2,20 @@ package docker
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
-	log "github.com/sirupsen/logrus"
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker/container"
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker/container/cgroupfs"
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker/container/fs"
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker/container/network"
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	utils "github.com/hyperpilotio/node-agent/pkg/snap/utilities/ns"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -65,6 +67,10 @@ var names map[string]string = map[string]string{
 	"tcp":             "tcp",
 	"tcp6":            "tcp6",
 	"filesystem":      "filesystem",
+}
+
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
 }
 
 // New returns initialized docker plugin

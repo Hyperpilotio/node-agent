@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -101,6 +103,10 @@ type CPUCollector struct {
 // defaultProcPath source of data for metrics
 var defaultProcPath = "/proc"
 
+func init() {
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
+}
+
 // New creates instance of interface info plugin
 func New() (*CPUCollector, error) {
 	return &CPUCollector{
@@ -115,9 +121,6 @@ func (p *CPUCollector) GetMetricTypes(cfg snap.Config) ([]snap.Metric, error) {
 		if err := p.init(cfg); err != nil {
 			return nil, err
 		}
-	}
-	if err := getStats(p.proc_path, p.stats, p.prevMetricsSum, p.cpuMetricsNumber, p.snapMetricsNames, p.procStatMetricsNames); err != nil {
-		return nil, err
 	}
 	mts := []snap.Metric{}
 
