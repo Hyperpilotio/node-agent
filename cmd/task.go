@@ -74,7 +74,11 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-tick:
-				metrics, _ := task.collect()
+				metrics, err := task.collect()
+				if err != nil {
+					log.Warnf("collect metric fail, skip this time: %s", err.Error())
+					continue
+				}
 				if task.Processor != nil {
 					metrics, _ = task.process(metrics)
 				}
@@ -105,6 +109,10 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 		}
 	}
 
+	if len(newMetricTypes) == 0 {
+		log.Warnf("No metric match namespace, no metrics are needed to collect")
+		return nil, errors.New("no metric match namespace, no metrics are needed to collect")
+	}
 	collectMetrics, err := task.Collector.CollectMetrics(newMetricTypes)
 	if err != nil {
 		return nil, errors.New("Unable to collect metric types: " + err.Error())
