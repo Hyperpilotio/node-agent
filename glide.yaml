@@ -1,0 +1,42 @@
+package: github.com/hyperpilotio/node-agent
+import:
+- package: github.com/docker/go-units
+- package: github.com/fsouza/go-dockerclient
+- package: github.com/gobwas/glob
+- package: github.com/golang/glog
+- package: github.com/influxdata/influxdb
+  subpackages:
+  - client/v2
+- package: github.com/mistifyio/go-zfs
+- package: github.com/moby/moby
+  subpackages:
+  - pkg/mount
+- package: github.com/oleiade/reflections
+- package: github.com/prometheus/client_model
+  subpackages:
+  - go
+- package: github.com/prometheus/common
+  subpackages:
+  - expfmt
+- package: github.com/shirou/gopsutil
+  subpackages:
+  - cpu
+  - disk
+  - load
+  - mem
+  - net
+- package: github.com/sirupsen/logrus
+testImport:
+- package: github.com/hyperpilotio/snap-plugin-collector-docker
+  subpackages:
+  - mocks
+- package: github.com/jpra1113/snap-plugin-lib-go
+  subpackages:
+  - v1/plugin
+- package: github.com/smartystreets/goconvey
+  subpackages:
+  - convey
+- package: github.com/stretchr/testify
+  subpackages:
+  - mock
+  - suite
