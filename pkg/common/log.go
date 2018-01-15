@@ -6,15 +6,15 @@ import (
 
 func GetLevel(s string) log.Level {
 	switch s {
-	case "1":
+	case "DEBUG":
 		return log.DebugLevel
-	case "2":
+	case "INFO":
 		return log.InfoLevel
-	case "3":
+	case "WARN":
 		return log.WarnLevel
-	case "4":
+	case "ERROR":
 		return log.ErrorLevel
-	case "5":
+	case "FATAL":
 		return log.FatalLevel
 	default:
 		return log.InfoLevel
