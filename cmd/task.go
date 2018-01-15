@@ -87,7 +87,7 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-tick:
-				metrics, err := task.collect(task.MetricTypes)
+				metrics, err := task.collect()
 				if err != nil {
 					log.Warnf("collect metric fail, skip this time: %s", err.Error())
 					continue
@@ -104,10 +104,10 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 	}()
 }
 
-func (task *HyperpilotTask) collect(metricTypes []snap.Metric) ([]snap.Metric, error) {
+func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	definition := task.Task
 	newMetricTypes := []snap.Metric{}
-	for _, mt := range metricTypes {
+	for _, mt := range task.MetricTypes {
 		mt.Config = definition.Collect.Config
 		namespace := mt.Namespace.String()
 		if mt.Tags == nil {
