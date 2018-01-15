@@ -122,6 +122,9 @@ func (p *CPUCollector) GetMetricTypes(cfg snap.Config) ([]snap.Metric, error) {
 			return nil, err
 		}
 	}
+	if err := getStats(p.proc_path, p.stats, p.prevMetricsSum, p.cpuMetricsNumber, p.snapMetricsNames, p.procStatMetricsNames); err != nil {
+		return nil, err
+	}
 	mts := []snap.Metric{}
 
 	namespaces := []string{}

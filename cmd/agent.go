@@ -7,10 +7,10 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/hyperpilotio/node-agent/pkg/common"
-	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
+	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
+	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -80,7 +80,12 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 	collectName := task.Collect.PluginName
 	taskCollector, err := collector.NewCollector(collectName)
 	if err != nil {
-		return fmt.Errorf("unable to new %s collector for task %s: %s", collectName, task.Id, err.Error())
+		return fmt.Errorf("Unable to new %s collector for task %s: %s", collectName, task.Id, err.Error())
+	}
+
+	metricTypes, err := taskCollector.GetMetricTypes(task.Collect.Config)
+	if err != nil {
+		return fmt.Errorf("Unable to get %s metric types: %s", collectName, err.Error())
 	}
 
 	var taskProcessor processor.Processor
@@ -92,7 +97,8 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 		}
 	}
 
-	newTask, err := NewHyperpilotTask(task, task.Id, taskCollector, taskProcessor, nodeAgent.Publishers)
+	newTask, err := NewHyperpilotTask(task, task.Id, metricTypes,
+		taskCollector, taskProcessor, nodeAgent.Publishers)
 	if err != nil {
 		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
 	}

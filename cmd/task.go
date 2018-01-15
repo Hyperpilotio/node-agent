@@ -22,13 +22,15 @@ type HyperpilotTask struct {
 	Collector      collector.Collector
 	Processor      processor.Processor
 	Publisher      []*publisher.HyperpilotPublisher
+	MetricTypes    []snap.Metric
 	MetricPatterns []glob.Glob
-	CusTags       map[string]string
+	CusTags        map[string]string
 }
 
 func NewHyperpilotTask(
 	task *common.NodeTask,
 	id string,
+	metricTypes []snap.Metric,
 	collector collector.Collector,
 	processor processor.Processor,
 	publishers map[string]*publisher.HyperpilotPublisher) (*HyperpilotTask, error) {
@@ -53,12 +55,13 @@ func NewHyperpilotTask(
 	}
 
 	hypterpilotTask := HyperpilotTask{
-		Task:      task,
-		Id:        id,
-		Collector: collector,
-		Processor: processor,
-		Publisher: pubs,
-		CusTags:  userCustTags,
+		Task:        task,
+		Id:          id,
+		Collector:   collector,
+		Processor:   processor,
+		Publisher:   pubs,
+		MetricTypes: metricTypes,
+		CusTags:     userCustTags,
 	}
 
 	for name := range task.Collect.Metrics {
@@ -84,7 +87,7 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-tick:
-				metrics, err := task.collect()
+				metrics, err := task.collect(task.MetricTypes)
 				if err != nil {
 					log.Warnf("collect metric fail, skip this time: %s", err.Error())
 					continue
@@ -101,14 +104,8 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 	}()
 }
 
-func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
+func (task *HyperpilotTask) collect(metricTypes []snap.Metric) ([]snap.Metric, error) {
 	definition := task.Task
-
-	metricTypes, err := task.Collector.GetMetricTypes(definition.Collect.Config)
-	if err != nil {
-		return nil, errors.New("Unable to get metric types: " + err.Error())
-	}
-
 	newMetricTypes := []snap.Metric{}
 	for _, mt := range metricTypes {
 		mt.Config = definition.Collect.Config
@@ -136,12 +133,13 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	}
 
 	if len(newMetricTypes) == 0 {
-		log.Warnf("No metric match namespace, no metrics are needed to collect")
-		return nil, errors.New("no metric match namespace, no metrics are needed to collect")
+		errMsg := fmt.Sprintf("No metric match namespace for %s, no metrics are needed to collect", task.Id)
+		log.Warnf(errMsg)
+		return nil, errors.New(errMsg)
 	}
 	collectMetrics, err := task.Collector.CollectMetrics(newMetricTypes)
 	if err != nil {
-		return nil, errors.New("Unable to collect metric types: " + err.Error())
+		return nil, fmt.Errorf("Unable to collect metrics for %s: %s", task.Id, err.Error())
 	}
 
 	return collectMetrics, nil
