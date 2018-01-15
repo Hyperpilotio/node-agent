@@ -88,22 +88,30 @@ func (c *DiskUsageCollector) Init() {
 
 }
 
+func (c *DiskUsageCollector) readNewSubDirs(paths ...string) []string {
+	dirs := []string{}
+	for _, p := range paths {
+		subdirs, _ := ioutil.ReadDir(p)
+		for _, sd := range subdirs {
+			dirs = append(dirs, path.Join(p, sd.Name()))
+		}
+	}
+	return dirs
+}
+
 func (c *DiskUsageCollector) worker(forSubDirs bool, id string, paths ...string) {
 	go func(forSubDirs bool, id string, paths ...string) {
 		dirs := []string{}
-		for _, p := range paths {
+		for {
 			if forSubDirs {
-				subdirs, _ := ioutil.ReadDir(p)
-				for _, sd := range subdirs {
-					dirs = append(dirs, path.Join(p, sd.Name()))
-				}
+				dirs = c.readNewSubDirs(paths...)
 			} else {
-				dirs = append(dirs, paths...)
+				if len(dirs) == 0 {
+					dirs = append(dirs, paths...)
+				}
 			}
-		}
 
-		if len(dirs) > 0 {
-			for {
+			if len(dirs) > 0 {
 				for _, d := range dirs {
 					args := []string{"-sx", d}
 					size, err := diskUsage("du", args)
@@ -115,10 +123,10 @@ func (c *DiskUsageCollector) worker(forSubDirs bool, id string, paths ...string)
 					c.DiskUsage[d] = size
 					c.Mut.Unlock()
 				}
-				time.Sleep(30 * time.Second)
+			} else {
+				fmt.Fprintf(os.Stderr, "WORKER %s, ERROR no storage points to collect", id)
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "WORKER %s, ERROR no storage points to collect", id)
+			time.Sleep(30 * time.Second)
 		}
 	}(forSubDirs, id, paths...)
 }
@@ -147,7 +155,16 @@ func (self *RealFsInfo) GetDirUsage(dir string, timeout time.Duration) (uint64, 
 	size, ok := collector.DiskUsage[dir]
 	collector.Mut.Unlock()
 	if !ok {
-		return 0, fmt.Errorf("Disk usage not found for %s", dir)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			return 0, fmt.Errorf("Disk usage not found for %s", dir)
+		}
+
+		log.WithFields(log.Fields{
+			"block":    "fs",
+			"function": "GetDirUsage",
+		}).Warnf("Wait %s dir disk usage to be available", dir)
+		time.Sleep(timeout)
+		return self.GetDirUsage(dir, timeout)
 	}
 	return size * 1024, nil
 }

@@ -7,12 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperpilotio/node-agent/pkg/snap"
-	"github.com/sirupsen/logrus"
 	"github.com/gobwas/glob"
+	"github.com/hyperpilotio/node-agent/pkg/common"
+	"github.com/hyperpilotio/node-agent/pkg/snap"
+	log "github.com/sirupsen/logrus"
 )
-
-var log *logrus.Entry
 
 type PreviousData struct {
 	Data   float64
@@ -28,8 +27,7 @@ type ProcessorConfig struct {
 }
 
 func init() {
-	log = logrus.New().WithField("processor", "average")
-	log.Logger.Out = os.Stdout
+	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
 }
 
 func NewProcessorConfig(cfg snap.Config) (*ProcessorConfig, error) {
@@ -191,6 +189,9 @@ func (p *SnapProcessor) Process(mts []snap.Metric, cfg snap.Config) ([]snap.Metr
 			continue
 		}
 
+		if mt.Tags == nil {
+			mt.Tags = map[string]string{}
+		}
 		podNamespace, _ := mt.Tags["io.kubernetes.pod.namespace"]
 		if p.isNamespacesCollected(config, metricNamespace, podNamespace) && p.isMetricNamespacesIncluded(config, metricNamespace) {
 			if isKeywordMatch(metricNamespace, config.AverageList) {

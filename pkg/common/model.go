@@ -11,10 +11,10 @@ type metricInfo struct {
 }
 
 type Collect struct {
-	PluginName string                `json:"plugin"`
-	Metrics    map[string]metricInfo `json:"metrics"`
-	Config     snap.Config           `json:"config"`
-	Tags       snap.Config           `json:"tags"`
+	PluginName string                       `json:"plugin"`
+	Metrics    map[string]metricInfo        `json:"metrics"`
+	Config     snap.Config                  `json:"config"`
+	Tags       map[string]map[string]string `json:"tags,omitempty"yaml:"tags"`
 }
 
 type Process struct {
@@ -38,5 +38,5 @@ type NodeTask struct {
 
 type TasksDefinition struct {
 	Tasks   []*NodeTask `json:"tasks"`
-	Publish []*Publish `json:"publish"`
+	Publish []*Publish  `json:"publish"`
 }

@@ -1,5 +1,5 @@
 hash: 5904b51475a64999c82b27a7ec1dd01c31633474a50240a50f1a749c5597311b
-updated: 2018-01-11T15:19:34.214882562+08:00
+updated: 2018-01-12T09:31:51.865449574+08:00
 imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
@@ -63,6 +63,8 @@ imports:
   - pkg/mount
 - name: github.com/oleiade/reflections
   version: 632977f98cd34d217c4b57d0840ec188b3d3dcaf
+- name: github.com/pkg/errors
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -78,18 +80,18 @@ imports:
   subpackages:
   - cpu
   - disk
+  - host
   - internal/common
   - load
   - mem
   - net
+  - process
+- name: github.com/shirou/w32
+  version: bb4de0191aa41b5507caa14b0650cdbddcd9280b
 - name: github.com/sirupsen/logrus
-  version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/StackExchange/wmi
   version: ea383cf3ba6ec950874b8486cd72356d007c768f
-- name: golang.org/x/crypto
-  version: aedad9a179ec1ea11b7064c57cbc6dc30d7724ec
-  subpackages:
-  - ssh/terminal
 - name: golang.org/x/sys
   version: 90796e5a05ce440b41c768bd9af257005e470461
   subpackages:

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"sync"
 	"flag"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
