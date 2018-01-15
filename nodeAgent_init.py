@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
+# node-agent runs in host-network, and influxdb runs in pod-network.
+# node-agent cannot communicate to influxdb using Service.
+# This script will find Pod IP of each Pod and fill in /etc/node_agent/tasks.json.
+
+import errno
 import os
 import sys
-import errno
-
-from tempfile import TemporaryFile
 from jinja2 import Template
-
 from kubernetes import client, config
 
 
