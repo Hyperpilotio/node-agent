@@ -53,6 +53,9 @@ class Accessor(object):
             pod_ip = pod.status.pod_ip
             print("pod_name: %s, label_selector: %s, namespace: %s, pod_ip: %s" % (
                 pod_name, label_selector, namespace, pod_ip))
+            if pod_ip is None:
+                print("Pod ip is not available, exit with error code 1")
+                sys.exit(errno.EPERM)
             return pod_ip
         except config.ConfigException:
             print("Failed to load configuration. This container cannot run outside k8s.")
