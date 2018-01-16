@@ -2,9 +2,8 @@ package main
 
 import (
 	"flag"
-	"sync"
-
 	log "github.com/sirupsen/logrus"
+	"os"
 )
 
 func main() {
@@ -24,8 +23,9 @@ func main() {
 		log.Error("Agent Init() fail: %s", err.Error())
 	}
 
-	taskWg := &sync.WaitGroup{}
-	nodeAgent.Run(taskWg)
 	log.Infof("Node Agent start running...")
-	taskWg.Wait()
+	nodeAgent.Run()
+	sig := make(chan os.Signal, 1)
+	<-sig
+	log.Infof("Node Agent receives OS signal to shutdown")
 }

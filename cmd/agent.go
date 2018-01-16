@@ -129,9 +129,8 @@ func (nodeAgent *NodeAgent) CreatePublisher(p *common.Publish) error {
 	return nil
 }
 
-func (nodeAgent *NodeAgent) Run(wg *sync.WaitGroup) {
+func (nodeAgent *NodeAgent) Run() {
 	for _, task := range nodeAgent.Tasks {
-		wg.Add(1)
-		task.Run(wg)
+		task.Run()
 	}
 }

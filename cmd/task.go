@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gobwas/glob"
@@ -75,7 +74,7 @@ func NewHyperpilotTask(
 	return &hypterpilotTask, nil
 }
 
-func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
+func (task *HyperpilotTask) Run() {
 	waitTime, err := time.ParseDuration(task.Task.Schedule.Interval)
 	if err != nil {
 		log.Warnf("Parse schedule interval {%s} fail, use default interval 5 seconds",
@@ -100,7 +99,6 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 				}
 			}
 		}
-		wg.Done()
 	}()
 }
 
