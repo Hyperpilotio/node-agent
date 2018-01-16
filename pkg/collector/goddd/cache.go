@@ -62,7 +62,6 @@ func initCache() error {
 		if err != nil {
 			return fmt.Errorf("Unable to write json file %s", err.Error())
 		}
-
 	}
 	return nil
 }

@@ -45,6 +45,11 @@ func init() {
 
 // New return an instance of Goddd
 func New() (*GodddCollector, error) {
+	err := initCache()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to call initCache() %s", err.Error())
+	}
+
 	return &GodddCollector{
 		Downloader: HTTPMetricsDownloader{},
 		cache:      NewCache(),
