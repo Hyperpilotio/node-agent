@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker/container"
+	"github.com/hyperpilotio/node-agent/pkg/snap"
 	. "github.com/hyperpilotio/snap-plugin-collector-docker/mocks"
-	"github.com/jpra1113/snap-plugin-lib-go/v1/plugin"
 )
 
 var mockDockerID = "a26c852ce22c"
@@ -42,25 +42,25 @@ var mockListOfContainers = map[string]*container.ContainerData{
 	},
 }
 
-var metricConf = plugin.Config{"endpoint": "unix:///var/run/docker.sock"}
+var metricConf = snap.Config{"endpoint": "unix:///var/run/docker.sock"}
 
-var mockMts = []plugin.Metric{
+var mockMts = []snap.Metric{
 	// representation of metrics grouped as `spec`
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("spec", "creation_time"),
 		Config: metricConf,
 	},
 	// representation of metrics grouped as `cgroup/cpu_stats`
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "cgroups", "cpu_stats", "cpu_usage", "total"),
 		Config: metricConf,
 	},
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "cgroups", "cpu_stats", "cpu_usage", "percpu").
 			AddDynamicElement("cpu_id", "an id of cpu").
@@ -69,58 +69,58 @@ var mockMts = []plugin.Metric{
 	},
 
 	// representation of metrics grouped as `cgroups/memory_stats`
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "cgroups", "memory_stats", "cache"),
 		Config: metricConf,
 	},
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "cgroups", "memory_stats", "statistics", "pgpgin"),
 		Config: metricConf,
 	},
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "cgroups", "memory_stats", "usage", "max_usage"),
 		Config: metricConf,
 	},
 
 	// representation of metrics grouped as `connection`
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "connection", "tcp", "established"),
 		Config: metricConf,
 	},
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "connection", "tcp6", "established"),
 		Config: metricConf,
 	},
 
 	// representation of metrics grouped as `network`
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "network").
 			AddDynamicElement("network_interface", "a name of network interface or 'total' for aggregate").
 			AddStaticElement("rx_bytes"),
 		Config: metricConf,
 	},
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("stats", "network").
 			AddDynamicElement("network_interface", "a name of network interface or 'total' for aggregate").
 			AddStaticElement("tx_bytes"),
 		Config: metricConf,
 	},
-	plugin.Metric{
-		Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+	snap.Metric{
+		Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 			AddDynamicElement("docker_id", "an id of docker container").
 			AddStaticElements("spec", "labels").
 			AddDynamicElement("label_key", "a key of container's label").
@@ -140,7 +140,7 @@ func TestGetMetricTypes(t *testing.T) {
 		}
 
 		Convey("get list of available metrics", func() {
-			metrics, err := dockerPlg.GetMetricTypes(plugin.Config{})
+			metrics, err := dockerPlg.GetMetricTypes(snap.Config{})
 			So(err, ShouldBeNil)
 			So(metrics, ShouldNotBeEmpty)
 
@@ -177,7 +177,7 @@ func TestCollectMetrics(t *testing.T) {
 		conf:       map[string]string{},
 	}
 
-	testLabels := func(metrics []plugin.Metric) {
+	testLabels := func(metrics []snap.Metric) {
 		Convey("includes all labels as tags", func() {
 			So(metrics[0].Tags["lkey1"], ShouldEqual, "lval1")
 			So(metrics[0].Tags["lkey2"], ShouldEqual, "lval2")
@@ -246,8 +246,8 @@ func TestCollectMetrics(t *testing.T) {
 		dockerPlg.client = mc
 
 		Convey("for specific dynamic elements: docker_id", func() {
-			mockMt := plugin.Metric{
-				Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+			mockMt := snap.Metric{
+				Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 					AddDynamicElement("docker_id", "an id of docker container").
 					AddStaticElements("stats", "cgroups", "memory_stats", "cache"),
 				Config: metricConf,
@@ -258,7 +258,7 @@ func TestCollectMetrics(t *testing.T) {
 					// specify docker id of requested metric type as a short
 					mockMt.Namespace[2].Value = mockDockerID
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldBeNil)
 					So(metrics, ShouldNotBeEmpty)
 					So(len(metrics), ShouldEqual, 1)
@@ -270,7 +270,7 @@ func TestCollectMetrics(t *testing.T) {
 					// specify docker id of requested metric type as a long
 					mockMt.Namespace[2].Value = mockListOfContainers[mockDockerID].ID
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldBeNil)
 					So(metrics, ShouldNotBeEmpty)
 					So(len(metrics), ShouldEqual, 1)
@@ -282,7 +282,7 @@ func TestCollectMetrics(t *testing.T) {
 					// specify docker id of requested metric type
 					mockMt.Namespace[2].Value = "root"
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldBeNil)
 					So(metrics, ShouldNotBeEmpty)
 					So(len(metrics), ShouldEqual, 1)
@@ -298,14 +298,14 @@ func TestCollectMetrics(t *testing.T) {
 					// specify id (12 chars) of docker container which not exist (it's not returned by ListContainerAsMap())
 					mockMt.Namespace[2].Value = "111111111111"
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldNotBeNil)
 					So(metrics, ShouldBeEmpty)
 					So(err.Error(), ShouldEqual, "Docker container 111111111111 cannot be found")
 				})
 				Convey("when specified docker_id has invalid format", func() {
-					mockMt := plugin.Metric{
-						Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+					mockMt := snap.Metric{
+						Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 							AddDynamicElement("docker_id", "an id of docker container").
 							AddStaticElements("stats", "cgroups", "memory_stats", "cache"),
 						Config: metricConf,
@@ -313,7 +313,7 @@ func TestCollectMetrics(t *testing.T) {
 					// specify requested docker id in invalid way (shorter than 12 chars)
 					mockMt.Namespace[2].Value = "1"
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldNotBeNil)
 					So(metrics, ShouldBeEmpty)
 					So(err.Error(), ShouldEqual, "Docker id 1 is too short (the length of id should equal at least 12)")
@@ -322,8 +322,8 @@ func TestCollectMetrics(t *testing.T) {
 		})
 
 		Convey("for specific dynamic elements: docker_id and cpu_id", func() {
-			mockMt := plugin.Metric{
-				Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+			mockMt := snap.Metric{
+				Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 					AddDynamicElement("docker_id", "an id of docker container").
 					AddStaticElements("stats", "cgroups", "cpu_stats", "cpu_usage", "per_cpu").
 					AddDynamicElement("cpu_id", "an id of cpu").
@@ -336,7 +336,7 @@ func TestCollectMetrics(t *testing.T) {
 			Convey("successful when specified cpu_id is valid", func() {
 				mockMt.Namespace[8].Value = "0"
 
-				metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+				metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 				So(err, ShouldBeNil)
 				So(metrics, ShouldNotBeEmpty)
 				So(len(metrics), ShouldEqual, 1)
@@ -350,21 +350,21 @@ func TestCollectMetrics(t *testing.T) {
 					// specify cpu_id which does not exist (out of range)
 					mockMt.Namespace[8].Value = "100"
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldNotBeNil)
 					So(metrics, ShouldBeEmpty)
 				})
 				Convey("when cpu_id is negative", func() {
 					mockMt.Namespace[8].Value = "-1"
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldNotBeNil)
 					So(metrics, ShouldBeEmpty)
 				})
 				Convey("when cpu_id is a float", func() {
 					mockMt.Namespace[8].Value = "1.0"
 
-					metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+					metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 					So(err, ShouldNotBeNil)
 					So(metrics, ShouldBeEmpty)
 				})
@@ -372,8 +372,8 @@ func TestCollectMetrics(t *testing.T) {
 		})
 
 		Convey("for specific dynamic elements: docker_id and network_interface", func() {
-			mockMt := plugin.Metric{
-				Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+			mockMt := snap.Metric{
+				Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 					AddDynamicElement("docker_id", "an id of docker container").
 					AddStaticElements("stats", "network").
 					AddDynamicElement("network_interface", "a name of network interface or 'total' for aggregate").
@@ -386,7 +386,7 @@ func TestCollectMetrics(t *testing.T) {
 			Convey("successful when specified network interface exists", func() {
 				mockMt.Namespace[5].Value = "eth0"
 
-				metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+				metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 				So(err, ShouldBeNil)
 				So(metrics, ShouldNotBeEmpty)
 				So(len(metrics), ShouldEqual, 1)
@@ -395,7 +395,7 @@ func TestCollectMetrics(t *testing.T) {
 			Convey("return an error when specified network interface is invalid", func() {
 				mockMt.Namespace[5].Value = "eth0_invalid"
 
-				metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+				metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 				So(err, ShouldNotBeNil)
 				So(metrics, ShouldBeEmpty)
 				So(err.Error(), ShouldEqual, fmt.Sprintf("In metric %s the given network interface is invalid (no stats for this net interface)", strings.Join(mockMt.Namespace.Strings(), "/")))
@@ -403,8 +403,8 @@ func TestCollectMetrics(t *testing.T) {
 		})
 
 		Convey("for specific dynamic elements: docker_id and label_key", func() {
-			mockMt := plugin.Metric{
-				Namespace: plugin.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
+			mockMt := snap.Metric{
+				Namespace: snap.NewNamespace(PLUGIN_VENDOR, PLUGIN_NAME).
 					AddDynamicElement("docker_id", "an id of docker container").
 					AddStaticElements("spec", "labels").
 					AddDynamicElement("label_key", "a key of container's label").
@@ -417,7 +417,7 @@ func TestCollectMetrics(t *testing.T) {
 			Convey("successful when specified label exists", func() {
 				mockMt.Namespace[5].Value = "lkey1"
 
-				metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+				metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 				So(err, ShouldBeNil)
 				So(metrics, ShouldNotBeEmpty)
 				So(len(metrics), ShouldEqual, 1)
@@ -428,7 +428,7 @@ func TestCollectMetrics(t *testing.T) {
 			Convey("return an error when specified label is invalid (not exist)", func() {
 				mockMt.Namespace[5].Value = "lkey1_invalid"
 
-				metrics, err := dockerPlg.CollectMetrics([]plugin.Metric{mockMt})
+				metrics, err := dockerPlg.CollectMetrics([]snap.Metric{mockMt})
 				So(err, ShouldNotBeNil)
 				So(metrics, ShouldBeEmpty)
 				So(err.Error(), ShouldEqual, fmt.Sprintf("In metric %s the given label is invalid (no value for this label key)", strings.Join(mockMt.Namespace.Strings(), "/")))
@@ -442,13 +442,13 @@ func TestCreateMetricNamespace(t *testing.T) {
 		nscreator := nsCreator{}
 
 		Convey("return an error when metric name is empty", func() {
-			ns, err := nscreator.createMetricNamespace(plugin.NewNamespace(), "")
+			ns, err := nscreator.createMetricNamespace(snap.NewNamespace(), "")
 			So(err, ShouldNotBeNil)
 			So(ns, ShouldBeNil)
 		})
 
 		Convey("when metric name contains only static elements", func() {
-			ns, err := nscreator.createMetricNamespace(plugin.NewNamespace("vendor", "plugin"), "disk/total_usage")
+			ns, err := nscreator.createMetricNamespace(snap.NewNamespace("vendor", "plugin"), "disk/total_usage")
 			So(err, ShouldBeNil)
 			So(ns, ShouldNotBeNil)
 			So(strings.Join(ns.Strings(), "/"), ShouldEqual, "vendor/plugin/disk/total_usage")
@@ -457,7 +457,7 @@ func TestCreateMetricNamespace(t *testing.T) {
 		Convey("when metric name contains dynamic element", func() {
 
 			Convey("return an error for unknown dynamic element", func() {
-				ns, err := nscreator.createMetricNamespace(plugin.NewNamespace("vendor", "plugin"), "disk/*/usage")
+				ns, err := nscreator.createMetricNamespace(snap.NewNamespace("vendor", "plugin"), "disk/*/usage")
 				So(err, ShouldNotBeNil)
 				So(ns, ShouldBeNil)
 				So(err.Error(), ShouldEqual, "Unknown dynamic element in metric `disk/*/usage` under index 1")
@@ -468,7 +468,7 @@ func TestCreateMetricNamespace(t *testing.T) {
 				nscreator.dynamicElements = map[string]dynamicElement{
 					"disk": dynamicElement{"disk_id", "id of disk"},
 				}
-				ns, err := nscreator.createMetricNamespace(plugin.NewNamespace("vendor", "plugin"), "disk/*/usage")
+				ns, err := nscreator.createMetricNamespace(snap.NewNamespace("vendor", "plugin"), "disk/*/usage")
 				So(err, ShouldBeNil)
 				So(ns, ShouldNotBeEmpty)
 				So(strings.Join(ns.Strings(), "/"), ShouldEqual, "vendor/plugin/disk/*/usage")
@@ -480,7 +480,7 @@ func TestCreateMetricNamespace(t *testing.T) {
 				nscreator.dynamicElements = map[string]dynamicElement{
 					"percpu_usage": dynamicElement{"cpu_id", "id of cpu"},
 				}
-				ns, err := nscreator.createMetricNamespace(plugin.NewNamespace("vendor", "plugin"), "percpu_usage/*")
+				ns, err := nscreator.createMetricNamespace(snap.NewNamespace("vendor", "plugin"), "percpu_usage/*")
 				So(err, ShouldBeNil)
 				So(ns, ShouldNotBeEmpty)
 				// metric namespace should not end with an asterisk,
