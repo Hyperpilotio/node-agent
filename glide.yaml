@@ -2,16 +2,23 @@ package: github.com/hyperpilotio/node-agent
 import:
 - package: github.com/docker/go-units
 - package: github.com/fsouza/go-dockerclient
+- package: github.com/go-resty/resty
 - package: github.com/gobwas/glob
-- package: github.com/golang/glog
 - package: github.com/influxdata/influxdb
   subpackages:
   - client/v2
+- package: github.com/mailru/easyjson
+  version: db58e6f9072c545a3a24b8d44c51d81fff6dcb51
+  subpackages:
+  - buffer
+  - jlexer
+  - jwriter
 - package: github.com/mistifyio/go-zfs
 - package: github.com/moby/moby
   subpackages:
   - pkg/mount
 - package: github.com/oleiade/reflections
+- package: github.com/pkg/errors
 - package: github.com/prometheus/client_model
   subpackages:
   - go
@@ -22,6 +29,7 @@ import:
   subpackages:
   - cpu
   - disk
+  - host
   - load
   - mem
   - net
@@ -30,9 +38,6 @@ testImport:
 - package: github.com/hyperpilotio/snap-plugin-collector-docker
   subpackages:
   - mocks
-- package: github.com/jpra1113/snap-plugin-lib-go
-  subpackages:
-  - v1/plugin
 - package: github.com/smartystreets/goconvey
   subpackages:
   - convey
