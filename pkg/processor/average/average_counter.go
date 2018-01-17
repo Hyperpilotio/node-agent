@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gobwas/glob"
@@ -26,8 +27,23 @@ type ProcessorConfig struct {
 	IsEmptyNamespaceInclude bool
 }
 
+// Processor test processor
+type SnapProcessor struct {
+	initialized bool
+	Config      *ProcessorConfig
+	Cache       map[string]*PreviousData
+	mutex       sync.Mutex
+}
+
 func init() {
 	log.SetLevel(common.GetLevel(os.Getenv("SNAP_LOG_LEVEL")))
+}
+
+// NewProcessor generate processor
+func NewProcessor() *SnapProcessor {
+	return &SnapProcessor{
+		Cache: make(map[string]*PreviousData),
+	}
 }
 
 func NewProcessorConfig(cfg snap.Config) (*ProcessorConfig, error) {
@@ -115,16 +131,22 @@ func NewProcessorConfig(cfg snap.Config) (*ProcessorConfig, error) {
 	}, nil
 }
 
-// Processor test processor
-type SnapProcessor struct {
-	Cache map[string]*PreviousData
-}
-
-// NewProcessor generate processor
-func NewProcessor() *SnapProcessor {
-	return &SnapProcessor{
-		Cache: make(map[string]*PreviousData),
+func (p *SnapProcessor) init(cfg snap.Config) error {
+	config, err := NewProcessorConfig(cfg)
+	if err != nil {
+		return errors.New("Unable to create processor config: " + err.Error())
 	}
+	p.Config = config
+	p.initialized = true
+
+	go func() {
+		for {
+			p.removeExpiredCacheData(5 * time.Minute)
+			time.Sleep(30 * time.Second)
+		}
+	}()
+
+	return nil
 }
 
 func (p *SnapProcessor) isNamespacesCollected(config *ProcessorConfig, metricNamespace string, podNamespace string) bool {
@@ -164,7 +186,7 @@ func (p *SnapProcessor) getCacheKey(mt snap.Metric) (string, error) {
 	if strings.HasPrefix(cacheKey, "intel/docker/") {
 		dockerId, ok := mt.Tags["docker_id"]
 		if !ok {
-			return "", fmt.Errorf("docker_id tag not found in docker metric tags: %+v", mt.Tags)
+			dockerId = namespaces[2]
 		}
 		cacheKey = cacheKey + "/" + dockerId
 	} else if nodename, ok := mt.Tags["nodename"]; ok {
@@ -176,9 +198,10 @@ func (p *SnapProcessor) getCacheKey(mt snap.Metric) (string, error) {
 
 // Process test process function
 func (p *SnapProcessor) Process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
-	config, err := NewProcessorConfig(cfg)
-	if err != nil {
-		return mts, errors.New("Unable to create processor config: " + err.Error())
+	if !p.initialized {
+		if err := p.init(cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	metrics := []snap.Metric{}
@@ -193,8 +216,8 @@ func (p *SnapProcessor) Process(mts []snap.Metric, cfg snap.Config) ([]snap.Metr
 			mt.Tags = map[string]string{}
 		}
 		podNamespace, _ := mt.Tags["io.kubernetes.pod.namespace"]
-		if p.isNamespacesCollected(config, metricNamespace, podNamespace) && p.isMetricNamespacesIncluded(config, metricNamespace) {
-			if isKeywordMatch(metricNamespace, config.AverageList) {
+		if p.isNamespacesCollected(p.Config, metricNamespace, podNamespace) && p.isMetricNamespacesIncluded(p.Config, metricNamespace) {
+			if isKeywordMatch(metricNamespace, p.Config.AverageList) {
 				data, err := p.CalculateAverageData(mt)
 				if err != nil {
 					return metrics, errors.New("Unable to calculate average data: " + err.Error())
@@ -208,17 +231,6 @@ func (p *SnapProcessor) Process(mts []snap.Metric, cfg snap.Config) ([]snap.Metr
 
 	return metrics, nil
 }
-
-/*
-	GetConfigPolicy() returns the configPolicy for your plugin.
-	A config policy is how users can provide configuration info to
-	plugin. Here you define what sorts of config info your plugin
-	needs and/or requires.
-*/
-//func (p *SnapProcessor) GetConfigPolicy() (snap.ConfigPolicy, error) {
-//	policy := snap.NewConfigPolicy()
-//	return *policy, nil
-//}
 
 func (p *SnapProcessor) CalculateAverageData(mt snap.Metric) (float64, error) {
 	cacheKey, err := p.getCacheKey(mt)
@@ -245,6 +257,18 @@ func (p *SnapProcessor) CalculateAverageData(mt snap.Metric) (float64, error) {
 
 	log.Infof("Cache this time metric %s value: %+v", cacheKey, previousData)
 	return averageData, nil
+}
+
+func (p *SnapProcessor) removeExpiredCacheData(expiredTime time.Duration) {
+	nowTime := time.Now()
+	for key, cacheData := range p.Cache {
+		if nowTime.Sub(cacheData.Create) > expiredTime {
+			log.Debugf("Remove expired cache data: %s", key)
+			p.mutex.Lock()
+			delete(p.Cache, key)
+			p.mutex.Unlock()
+		}
+	}
 }
 
 func isKeywordMatch(keyword string, patterns []glob.Glob) bool {

@@ -6,6 +6,7 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/collector/cpu"
 	"github.com/hyperpilotio/node-agent/pkg/collector/disk"
 	"github.com/hyperpilotio/node-agent/pkg/collector/docker"
+	"github.com/hyperpilotio/node-agent/pkg/collector/goddd"
 	"github.com/hyperpilotio/node-agent/pkg/collector/prometheus"
 	"github.com/hyperpilotio/node-agent/pkg/collector/psutil"
 	"github.com/hyperpilotio/node-agent/pkg/collector/use"
@@ -32,6 +33,8 @@ func NewCollector(name string) (Collector, error) {
 		return psutil.New()
 	case "use":
 		return use.New()
+	case "goddd":
+		return goddd.New()
 	default:
 		return nil, errors.New("Unsupported collector type: " + name)
 	}
