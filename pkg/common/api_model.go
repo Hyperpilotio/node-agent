@@ -1,6 +1,20 @@
 package common
 
 type TaskReport struct {
-	LastErrorMsg   string `json:"message"`
-	LastErrorTime  int64  `json:"timestamp"`
+	Id            string `json:"Id,omitempty"`
+	LastErrorMsg  string `json:"LastErrorMessage"`
+	LastErrorTime int64  `json:"LastErrorTimestamp"`
+	FailureCount  int64  `json:"FailureCount"`
+}
+
+type PublisherReport struct {
+	Id            string `json:"Id,omitempty"`
+	LastErrorMsg  string `json:"LastErrorMessage"`
+	LastErrorTime int64  `json:"LastErrorTimestamp"`
+	FailureCount  int64  `json:"FailureCount"`
+}
+
+type Report struct {
+	Tasks     map[string]TaskReport      `json:"tasks"`
+	Publisher map[string]PublisherReport `json:"publishers"`
 }

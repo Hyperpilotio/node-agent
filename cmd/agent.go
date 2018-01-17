@@ -11,19 +11,20 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
-	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	log "github.com/sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 )
 
 type NodeAgent struct {
-	Config        *common.TasksDefinition
-	taskLock      sync.Mutex
-	Tasks         map[string]*HyperpilotTask
-	publisherLock sync.Mutex
-	Publishers    map[string]*publisher.HyperpilotPublisher
-	ErrReportChan chan common.TaskReport
-	LastErrReport common.TaskReport
+	Config              *common.TasksDefinition
+	taskLock            sync.Mutex
+	Tasks               map[string]*HyperpilotTask
+	publisherLock       sync.Mutex
+	Publishers          map[string]*HyperpilotPublisher
+	taskReportLock      sync.RWMutex
+	TasksReport         map[string]common.TaskReport
+	publisherReportLock sync.RWMutex
+	PublishersReport    map[string]common.PublisherReport
 }
 
 func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
@@ -52,10 +53,11 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 	}
 
 	return &NodeAgent{
-		Config:        taskDef,
-		Tasks:         make(map[string]*HyperpilotTask),
-		Publishers:    make(map[string]*publisher.HyperpilotPublisher),
-		ErrReportChan: make(chan common.TaskReport, 100),
+		Config:           taskDef,
+		Tasks:            make(map[string]*HyperpilotTask),
+		Publishers:       make(map[string]*HyperpilotPublisher),
+		TasksReport:      make(map[string]common.TaskReport),
+		PublishersReport: make(map[string]common.PublisherReport),
 	}, nil
 }
 
@@ -107,7 +109,7 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 	}
 
 	newTask, err := NewHyperpilotTask(task, task.Id, metricTypes,
-		taskCollector, taskProcessor, nodeAgent.Publishers, nodeAgent.ErrReportChan)
+		taskCollector, taskProcessor, nodeAgent)
 	if err != nil {
 		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
 	}
@@ -124,7 +126,7 @@ func (nodeAgent *NodeAgent) CreatePublisher(p *common.Publish) error {
 	nodeAgent.publisherLock.Lock()
 	defer nodeAgent.publisherLock.Unlock()
 
-	hpPublisher, err := publisher.NewHyperpilotPublisher(p.PluginName, p.Config, nodeAgent.ErrReportChan)
+	hpPublisher, err := NewHyperpilotPublisher(nodeAgent, p)
 	if err != nil {
 		return fmt.Errorf("unable to new publisher id={%s}, type={%s}: %s", p.Id, p.PluginName, err.Error())
 	}
@@ -142,12 +144,6 @@ func (nodeAgent *NodeAgent) Run() {
 	for _, task := range nodeAgent.Tasks {
 		task.Run()
 	}
-
-	go func() {
-		for {
-			nodeAgent.LastErrReport = <-nodeAgent.ErrReportChan
-		}
-	}()
 }
 
 func (nodeAgent *NodeAgent) startAPIServer() {
@@ -163,12 +159,48 @@ func (nodeAgent *NodeAgent) startAPIServer() {
 	}
 
 	log.Infof("API Server starts")
-	err := router.Run(":8181")
+	err := router.Run(":7000")
 	if err != nil {
 		log.Errorf(" api server cannot start :%s", err.Error())
 	}
 }
 
+func (nodeAgent *NodeAgent) UpdateTaskReport(report common.TaskReport) {
+	nodeAgent.taskReportLock.Lock()
+	defer nodeAgent.taskReportLock.Unlock()
+
+	id := report.Id
+	report.Id = ""
+	nodeAgent.TasksReport[id] = report
+}
+
+func (nodeAgent *NodeAgent) UpdatePublishReport(report common.PublisherReport) {
+	nodeAgent.publisherReportLock.Lock()
+	defer nodeAgent.publisherReportLock.Unlock()
+
+	id := report.Id
+	report.Id = ""
+	nodeAgent.PublishersReport[id] = report
+}
+
 func (nodeAgent *NodeAgent) Report(c *gin.Context) {
-	c.JSON(http.StatusOK, nodeAgent.LastErrReport)
+	report := common.Report{}
+	fillTaskReport(nodeAgent, &report)
+	fillPublisherReport(nodeAgent, &report)
+
+	c.JSON(http.StatusOK, report)
+}
+
+func fillTaskReport(agent *NodeAgent, report *common.Report) {
+	agent.taskReportLock.RLock()
+	defer agent.taskReportLock.RUnlock()
+
+	report.Tasks = agent.TasksReport
+}
+
+func fillPublisherReport(agent *NodeAgent, report *common.Report) {
+	agent.publisherReportLock.RLock()
+	defer agent.publisherReportLock.RUnlock()
+
+	report.Publisher = agent.PublishersReport
 }
