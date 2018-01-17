@@ -5,7 +5,7 @@ VERSION := latest
 TEST_IMAGE := ogre0403/$(AGENT_NAME)
 TEST_VERSION := $(shell date +%Y%m%d)
 
-.PHONY: install_deps build build-ubuntu-image
+.PHONY: install_deps build-release build-image
 
 install_deps:
 	glide install
@@ -22,10 +22,10 @@ clean:
 	rm -rf bin/*
 
 build-image:
-	docker build -t $(IMAGE):$(VERSION)  .
+	docker build -t $(IMAGE):$(VERSION)  -f dockerfiles/release/Dockerfile .
 
 build-test-image:
-	docker build -t $(TEST_IMAGE):$(TEST_VERSION)  .
+	docker build -t $(TEST_IMAGE):$(TEST_VERSION)  -f dockerfiles/local/Dockerfile .
 
 push-test-image:
 	docker push $(TEST_IMAGE):$(TEST_VERSION)

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sync"
+	"net/http"
 
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
 	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	log "github.com/sirupsen/logrus"
+	"github.com/gin-gonic/gin"
 )
 
 type NodeAgent struct {
@@ -20,6 +22,8 @@ type NodeAgent struct {
 	Tasks         map[string]*HyperpilotTask
 	publisherLock sync.Mutex
 	Publishers    map[string]*publisher.HyperpilotPublisher
+	ErrReportChan chan common.TaskReport
+	LastErrReport common.TaskReport
 }
 
 func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
@@ -48,9 +52,10 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 	}
 
 	return &NodeAgent{
-		Config:     taskDef,
-		Tasks:      make(map[string]*HyperpilotTask),
-		Publishers: make(map[string]*publisher.HyperpilotPublisher),
+		Config:        taskDef,
+		Tasks:         make(map[string]*HyperpilotTask),
+		Publishers:    make(map[string]*publisher.HyperpilotPublisher),
+		ErrReportChan: make(chan common.TaskReport, 100),
 	}, nil
 }
 
@@ -70,6 +75,10 @@ func (nodeAgent *NodeAgent) Init() error {
 			return err
 		}
 	}
+
+	// start node agent api server
+	go nodeAgent.startAPIServer()
+
 	return nil
 }
 
@@ -98,7 +107,7 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 	}
 
 	newTask, err := NewHyperpilotTask(task, task.Id, metricTypes,
-		taskCollector, taskProcessor, nodeAgent.Publishers)
+		taskCollector, taskProcessor, nodeAgent.Publishers, nodeAgent.ErrReportChan)
 	if err != nil {
 		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
 	}
@@ -115,7 +124,7 @@ func (nodeAgent *NodeAgent) CreatePublisher(p *common.Publish) error {
 	nodeAgent.publisherLock.Lock()
 	defer nodeAgent.publisherLock.Unlock()
 
-	hpPublisher, err := publisher.NewHyperpilotPublisher(p.PluginName, p.Config)
+	hpPublisher, err := publisher.NewHyperpilotPublisher(p.PluginName, p.Config, nodeAgent.ErrReportChan)
 	if err != nil {
 		return fmt.Errorf("unable to new publisher id={%s}, type={%s}: %s", p.Id, p.PluginName, err.Error())
 	}
@@ -129,9 +138,37 @@ func (nodeAgent *NodeAgent) CreatePublisher(p *common.Publish) error {
 	return nil
 }
 
-func (nodeAgent *NodeAgent) Run(wg *sync.WaitGroup) {
+func (nodeAgent *NodeAgent) Run() {
 	for _, task := range nodeAgent.Tasks {
-		wg.Add(1)
-		task.Run(wg)
+		task.Run()
 	}
+
+	go func() {
+		for {
+			nodeAgent.LastErrReport = <-nodeAgent.ErrReportChan
+		}
+	}()
+}
+
+func (nodeAgent *NodeAgent) startAPIServer() {
+	router := gin.New()
+
+	// Global middleware
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	clusterGroup := router.Group("/")
+	{
+		clusterGroup.GET("/report", nodeAgent.Report)
+	}
+
+	log.Infof("API Server starts")
+	err := router.Run(":8181")
+	if err != nil {
+		log.Errorf(" api server cannot start :%s", err.Error())
+	}
+}
+
+func (nodeAgent *NodeAgent) Report(c *gin.Context) {
+	c.JSON(http.StatusOK, nodeAgent.LastErrReport)
 }
