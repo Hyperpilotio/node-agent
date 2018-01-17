@@ -20,9 +20,7 @@ type HyperpilotTask struct {
 	Collector      collector.Collector
 	Processor      processor.Processor
 	Publisher      []*HyperpilotPublisher
-	MetricTypes    []snap.Metric
-	MetricPatterns []glob.Glob
-	CusTags        map[string]string
+	CollectMetrics []snap.Metric
 	FailreCount    int64
 	Agent          *NodeAgent
 }
@@ -30,11 +28,10 @@ type HyperpilotTask struct {
 func NewHyperpilotTask(
 	task *common.NodeTask,
 	id string,
-	metricTypes []snap.Metric,
+	allMetricTypes []snap.Metric,
 	collector collector.Collector,
 	processor processor.Processor,
 	agent *NodeAgent) (*HyperpilotTask, error) {
-
 	var pubs []*HyperpilotPublisher
 
 	for _, pubId := range *task.Publish {
@@ -47,33 +44,32 @@ func NewHyperpilotTask(
 		}
 	}
 
-	userCustTags := make(map[string]string)
-	for _, entries := range task.Collect.Tags {
-		for k, v := range entries {
-			userCustTags[k] = v
-		}
-	}
-
-	hypterpilotTask := HyperpilotTask{
-		Task:        task,
-		Id:          id,
-		Collector:   collector,
-		Processor:   processor,
-		Publisher:   pubs,
-		MetricTypes: metricTypes,
-		CusTags:     userCustTags,
-		Agent:       agent,
-	}
+	metricPatterns := []glob.Glob{}
 
 	for name := range task.Collect.Metrics {
 		pattern, err := glob.Compile(name)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Unable to compile collect namespace {%s}: ", name, err.Error()))
 		}
-		hypterpilotTask.MetricPatterns = append(hypterpilotTask.MetricPatterns, pattern)
+		metricPatterns = append(metricPatterns, pattern)
 	}
 
-	return &hypterpilotTask, nil
+	cmts := getCollectMetricTypes(metricPatterns, allMetricTypes, task.Collect)
+	if len(cmts) == 0 {
+		errMsg := fmt.Sprintf("No metric match namespace for %s, no metrics are needed to collect", task.Id)
+		log.Warnf(errMsg)
+		return nil, errors.New(errMsg)
+	}
+
+	return &HyperpilotTask{
+		Task:           task,
+		Id:             id,
+		Collector:      collector,
+		Processor:      processor,
+		Publisher:      pubs,
+		CollectMetrics: cmts,
+		Agent:          agent,
+	}, nil
 }
 
 func (task *HyperpilotTask) Run() {
@@ -122,45 +118,68 @@ func (task *HyperpilotTask) Run() {
 	}()
 }
 
-func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
-	definition := task.Task
-	newMetricTypes := []snap.Metric{}
-	for _, mt := range task.MetricTypes {
-		mt.Config = definition.Collect.Config
+func getCollectMetricTypes(
+	metricPatterns []glob.Glob,
+	allMetricTypes []snap.Metric,
+	collect *common.Collect) []snap.Metric {
+	collectMetricTypes := []snap.Metric{}
+	for _, mt := range allMetricTypes {
+		mt.Config = collect.Config
 		namespace := mt.Namespace.String()
-		if mt.Tags == nil {
-			mt.Tags = make(map[string]string)
-		}
-
-		for k, v := range task.CusTags {
-			mt.Tags[k] = v
-		}
-
-		for _, pattern := range task.MetricPatterns {
+		matchNamespace := false
+		for _, pattern := range metricPatterns {
 			if pattern.Match(namespace) {
-				newMetricTypes = append(newMetricTypes, mt)
+				collectMetricTypes = append(collectMetricTypes, mt)
+				matchNamespace = true
 				break
 			}
 		}
-		for name, _ := range definition.Collect.Metrics {
-			if strings.HasPrefix(name, namespace) {
-				newMetricTypes = append(newMetricTypes, mt)
-				break
+
+		if !matchNamespace {
+			for name, _ := range collect.Metrics {
+				if strings.HasPrefix(name, namespace) {
+					collectMetricTypes = append(collectMetricTypes, mt)
+					break
+				}
 			}
 		}
 	}
 
-	if len(newMetricTypes) == 0 {
-		errMsg := fmt.Sprintf("No metric match namespace for %s, no metrics are needed to collect", task.Id)
-		log.Warnf(errMsg)
-		return nil, errors.New(errMsg)
+	return collectMetricTypes
+}
+
+func addTags(tags map[string]map[string]string, mts []snap.Metric) []snap.Metric {
+	if len(tags) == 0 {
+		return mts
 	}
-	collectMetrics, err := task.Collector.CollectMetrics(newMetricTypes)
+
+	newMts := []snap.Metric{}
+	for _, mt := range mts {
+		if mt.Tags == nil {
+			mt.Tags = map[string]string{}
+		}
+
+		namespace := mt.Namespace.String()
+		for prefix, entries := range tags {
+			if strings.HasPrefix(namespace, prefix) {
+				for k, v := range entries {
+					mt.Tags[k] = v
+				}
+			}
+		}
+		newMts = append(newMts, mt)
+	}
+
+	return newMts
+}
+
+func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
+	collectMetrics, err := task.Collector.CollectMetrics(task.CollectMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to collect metrics for %s: %s", task.Id, err.Error())
 	}
 
-	return collectMetrics, nil
+	return addTags(task.Task.Collect.Tags, collectMetrics), nil
 }
 
 func (task *HyperpilotTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
