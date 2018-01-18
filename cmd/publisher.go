@@ -27,8 +27,9 @@ func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPub
 		return nil, errors.New("Unable to create publisher: " + err.Error())
 	}
 
+	queueSize := agent.Config.GetInt("PublisherQueueSize")
 	return &HyperpilotPublisher{
-		Queue:     queue.NewCappedQueue(100),
+		Queue:     queue.NewCappedQueue(queueSize),
 		Publisher: publisher,
 		Config:    cfg,
 		Id:        p.Id,
@@ -37,11 +38,19 @@ func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPub
 }
 
 func (publisher *HyperpilotPublisher) Run() {
+
+	retryTimeout, err := time.ParseDuration(publisher.Agent.Config.GetString("PublisherTimeOut"))
+	if err != nil {
+		log.Warnf("Parse PublisherTimeOut {%s} fail, use default interval 3 min in publisher {%s}",
+			publisher.Agent.Config.GetString("PublisherTimeOut"), publisher.Id)
+		retryTimeout = 3 * time.Minute
+	}
+
 	go func() {
 		b := backoff.NewExponentialBackOff()
 		b.InitialInterval = 10 * time.Second
 		b.MaxInterval = 1 * time.Minute
-		b.MaxElapsedTime = 3 * time.Minute
+		b.MaxElapsedTime = retryTimeout
 
 		for {
 			if !publisher.Queue.Empty() {

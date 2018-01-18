@@ -10,10 +10,11 @@ RUN apt-get update > /dev/null && \
 COPY run.sh /usr/local/bin/run.sh
 COPY ./bin/linux/node-agent node-agent
 COPY nodeAgent_init.py nodeAgent_init.py
+COPY ./conf/agent_config.json /etc/node_agent/agent_config.json
 
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt && mkdir -p /usr/host
 
-EXPOSE 8181
+EXPOSE 8000
 
 ENTRYPOINT ["/usr/local/bin/run.sh"]
