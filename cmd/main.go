@@ -42,7 +42,7 @@ func main() {
 
 func setDefault() {
 	//Default
-	viper.SetDefault("APIServerPort", 7000)
+	viper.SetDefault("APIServerPort", "7000")
 	viper.SetDefault("TaskConfiguration", "/etc/node_agent/tasks.json")
 	viper.SetDefault("PublisherQueueSize", 100)
 	viper.SetDefault("PublisherTimeOut", "3m")

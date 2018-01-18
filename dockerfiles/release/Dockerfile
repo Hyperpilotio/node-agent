@@ -15,6 +15,6 @@ COPY ./conf/agent_config.json /etc/node_agent/agent_config.json
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt && mkdir -p /usr/host
 
-EXPOSE 8000
+EXPOSE 7000
 
 ENTRYPOINT ["/usr/local/bin/run.sh"]
