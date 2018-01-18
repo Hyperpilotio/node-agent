@@ -38,12 +38,17 @@ func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPub
 }
 
 func (publisher *HyperpilotPublisher) Run() {
-
 	retryTimeout, err := time.ParseDuration(publisher.Agent.Config.GetString("PublisherTimeOut"))
 	if err != nil {
 		log.Warnf("Parse PublisherTimeOut {%s} fail, use default interval 3 min in publisher {%s}",
 			publisher.Agent.Config.GetString("PublisherTimeOut"), publisher.Id)
 		retryTimeout = 3 * time.Minute
+	}
+
+	batchSize := publisher.Agent.Config.GetInt("PublisherBatchSize")
+	if batchSize < 1 {
+		log.Warnf("Batch Size {%d} is not feasible, use 1 instead", publisher.Agent.Config.GetInt("PublisherBatchSize"))
+		batchSize = 1
 	}
 
 	go func() {
@@ -54,15 +59,19 @@ func (publisher *HyperpilotPublisher) Run() {
 
 		for {
 			if !publisher.Queue.Empty() {
-				//todo: get batch
-				metrics := publisher.Queue.Dequeue()
-				if metrics == nil {
-					log.Warnf("Publisher {%s} push nil metric, should not happen", publisher.Id)
-					continue
+				var batchMetrics []snap.Metric
+				for i := 0; i < batchSize; i++ {
+					metrics := publisher.Queue.Dequeue()
+					if metrics == nil {
+						log.Warnf("Publisher {%s} get nil metric, because element number inside of queue is less than batch size {%d}",
+							publisher.Id, batchSize)
+						continue
+					}
+					batchMetrics = append(batchMetrics, metrics.([]snap.Metric) ...)
 				}
 
 				retryPublish := func() error {
-					return publisher.Publisher.Publish(metrics.([]snap.Metric), publisher.Config)
+					return publisher.Publisher.Publish(batchMetrics, publisher.Config)
 				}
 
 				err := backoff.Retry(retryPublish, b)
@@ -74,7 +83,7 @@ func (publisher *HyperpilotPublisher) Run() {
 						LastErrorTime: time.Now().UnixNano() / 1000000,
 						FailureCount:  publisher.FailureCount,
 					})
-					log.Warnf("Publisher {%s} push metric fail, %d metrics are dropped: %s", publisher.Id, len(metrics.([]snap.Metric)), err.Error())
+					log.Warnf("Publisher {%s} push metric fail, %d metrics are dropped: %s", publisher.Id, len(batchMetrics), err.Error())
 				}
 				time.Sleep(1 * time.Second)
 			}
