@@ -122,23 +122,6 @@ func getConfig(config snap.Config) (configuration, error) {
 	return cfg, nil
 }
 
-// func (ip *InfluxPublisher) GetConfigPolicy() (plugin.ConfigPolicy, error) {
-// 	policy := plugin.NewConfigPolicy()
-
-// 	policy.AddNewStringRule([]string{""}, "host", true)
-// 	policy.AddNewIntRule([]string{""}, "port", false, plugin.SetDefaultInt(8086))
-// 	policy.AddNewStringRule([]string{""}, "database", true)
-// 	policy.AddNewStringRule([]string{""}, "user", true)
-// 	policy.AddNewStringRule([]string{""}, "password", true)
-// 	policy.AddNewStringRule([]string{""}, "retention", false, plugin.SetDefaultString("autogen"))
-// 	policy.AddNewBoolRule([]string{""}, "skip-verify", false, plugin.SetDefaultBool(false))
-// 	policy.AddNewStringRule([]string{""}, "precision", false, plugin.SetDefaultString("ns"))
-// 	policy.AddNewBoolRule([]string{""}, "isMultiFields", false, plugin.SetDefaultBool(false))
-// 	policy.AddNewStringRule([]string{""}, "scheme", false, plugin.SetDefaultString(HTTP))
-
-// 	return *policy, nil
-// }
-
 func watchConnections() {
 	for {
 		time.Sleep(watchConnectionWait)
@@ -281,7 +264,7 @@ func getLogger(config configuration) *log.Entry {
 	})
 
 	// default
-	log.SetLevel(log.WarnLevel)
+	//log.SetLevel(log.WarnLevel)
 
 	levelValue := config.logLevel
 	if levelValue != "undefined" {
