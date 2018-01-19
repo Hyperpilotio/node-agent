@@ -1,22 +1,25 @@
 {
     "tasks": [
         {
-            "id": "docker-cgroups-task",
+            "id": "nodeanalyzer",
             "schedule": {
                 "interval": "5s"
             },
             "collect": {
-                "plugin": "docker",
+                "plugin": "psutil",
                 "metrics": {
-                    "/intel/docker/*/stats/cgroups/cpu_stats/*": {}
+                    "/intel/psutil/vm/*": {}
                 },
                 "config": {
-                    "endpoint": "unix:///var/run/docker.sock",
-                    "procfs": "/proc"
+                    "mount_points": false
                 },
                 "tags": {
                     "/intel": {
-                        "nodename": "<%= a.env('NODE_NAME') =>",
+                        "nodename": "node-1",
+                        "deploymentId": "test"
+                    },
+                    "|intel": {
+                        "nodename": "node-1",
                         "deploymentId": "test"
                     }
                 }
@@ -26,9 +29,7 @@
                 "config": {
                     "collect.namespaces": "default",
                     "collect.include_empty_namespace": true,
-                    "collect.exclude_metrics": "*cpu_stats/cpu_shares, */cpuset_stats/*, */pids_stats/*, */cpu_usage/per_cpu/*",
-                    "collect.exclude_metrics.except": "",
-                    "average": "*/blkio_stats/*, */cpu_usage/*, */cpu_stats/throttling_data/*, */cgroups/memory_stats/*/failcnt, */cgroups/memory_stats/*/pgfault, */cgroups/memory_stats/*/pgmajfault, */cgroups/memory_stats/*/pgpgin, */cgroups/memory_stats/*/pgpgout, */cgroups/memory_stats/*/total_pgfault, */cgroups/memory_stats/*/total_pgmajfault, */cgroups/memory_stats/*/total_pgppin, */cgroups/memory_stats/*/total_pgpgout, */cgroups/hugetlb_stats/*/failcnt"
+                    "average": "intel/psutil/net/all/*, intel/psutil/cpu/cpu-total/*"
                 },
                 "analyze": {
                     "plugin": "nodeanalyzer",

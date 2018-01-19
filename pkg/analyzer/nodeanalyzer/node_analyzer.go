@@ -16,6 +16,7 @@ import (
 
 type NodeAnalyzer struct {
 	DerivedMetrics *DerivedMetrics
+	Normalizers    []string
 }
 
 type MetricConfigs struct {
@@ -44,30 +45,41 @@ func init() {
 
 // NewProcessor generate processor
 func NewAnalyzer() *NodeAnalyzer {
-	return &NodeAnalyzer{}
+	return &NodeAnalyzer{
+		Normalizers: make([]string, 0),
+	}
 }
 
 func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) {
-	newMetrics := []snap.Metric{}
-	for _, mt := range mts {
-		if mt.Data == nil {
-			continue
-		}
+	metrics := []snap.Metric{}
 
+	normalizersData := map[string]map[string]float64{}
+	for _, mt := range mts {
+		metricNm := strings.Join(mt.Namespace.Strings(), "/")
+		for _, normalizersNm := range p.Normalizers {
+			if metricNm == normalizersNm {
+				normalizer := map[string]float64{}
+				normalizer[mt.Tags["nodename"]] = convertFloat64(mt.Data)
+				normalizersData[metricNm] = normalizer
+			}
+		}
+	}
+
+	for _, mt := range mts {
 		currentTime := mt.Timestamp.UnixNano()
-		metricName := "/" + strings.Join(mt.Namespace.Strings(), "/")
-		metricData := convertFloat64(mt.Data)
-		derivedMetric, err := p.DerivedMetrics.ProcessMetric(currentTime, metricName, metricData)
+		metricData := &MetricData{
+			MetricName:      strings.Join(mt.Namespace.Strings(), "/"),
+			NodeName:        mt.Tags["nodename"],
+			Value:           convertFloat64(mt.Data),
+			NormalizersData: normalizersData,
+		}
+		derivedMetric, err := p.DerivedMetrics.ProcessMetric(currentTime, metricData)
 		if err != nil {
 			return nil, errors.New("Unable to process metric: " + err.Error())
 		}
 
 		if derivedMetric != nil {
-			namespaces := mt.Namespace.Strings()
-			namespaces = append(namespaces, derivedMetric.Name)
-			mt.Tags["derived_metrics_process"] = "true"
-			mt.Tags["average_data"] = strconv.FormatFloat(metricData, 'f', -1, 64)
-
+			namespaces := strings.Split(derivedMetric.Name, "/")
 			newMetric := snap.Metric{
 				Namespace: snap.NewNamespace(namespaces...),
 				Version:   mt.Version,
@@ -76,15 +88,11 @@ func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) 
 				Data:      derivedMetric.Value,
 			}
 
-			newMetrics = append(newMetrics, newMetric)
+			metrics = append(metrics, newMetric)
 		}
 	}
 
-	for _, newMetric := range newMetrics {
-		mts = append(mts, newMetric)
-	}
-
-	return mts, nil
+	return metrics, nil
 }
 
 // Analyze test analyze function
@@ -98,6 +106,11 @@ func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metri
 		configs, err := downloadConfigFile(configUrl)
 		if err != nil {
 			return nil, errors.New("Unable to download and deserialize configs: " + err.Error())
+		}
+		for _, dmCfg := range configs.Configs {
+			if dmCfg.Normalizer != nil {
+				p.Normalizers = append(p.Normalizers, *dmCfg.Normalizer)
+			}
 		}
 
 		interval, err := cfg.GetString("sampleInterval")

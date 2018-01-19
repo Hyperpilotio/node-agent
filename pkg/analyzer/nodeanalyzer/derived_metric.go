@@ -8,29 +8,37 @@ import (
 	"github.com/gobwas/glob"
 )
 
-type DerivedMetric struct {
+type MetricData struct {
+	MetricName      string
+	Value           float64
+	NodeName        string
+	NormalizersData map[string]map[string]float64
+}
+
+type DerivedMetricResult struct {
 	Name  string
 	Value float64
 }
 
 type DerivedMetricCalculator interface {
-	GetDerivedMetric(currentTime int64, value float64) *DerivedMetric
+	GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult
 }
 
 type DerivedMetricConfig struct {
 	MetricName           string            `json:"metric_name"`
 	Type                 string            `json:"type"`
 	Resource             string            `json:"resource"`
-	Normalizer           string            `json:"normalizer,omitempty"`
+	Normalizer           *string           `json:"normalizer,omitempty"`
 	ObservationWindowSec int64             `json:"observation_window_sec"`
-	Tags                 map[string]string `json:"tags"`
+	Tags                 map[string]string `json:"tags,omitempty"`
 
-	ThresholdBased *ThresholdBasedConfig `json:"threshold"`
+	Threshold *ThresholdBasedConfig `json:"threshold"`
 }
 
 type ThresholdBasedConfig struct {
 	Type  string  `json:"type"`
 	Value float64 `json:"value"`
+	Unit  string  `json:"unit"`
 }
 
 type ThresholdBasedState struct {
@@ -51,23 +59,33 @@ func NewThresholdBasedState(sampleInterval int64, config *DerivedMetricConfig) *
 }
 
 func NewDerivedMetricCalculator(sampleInterval int64, config *DerivedMetricConfig) (DerivedMetricCalculator, error) {
-	if config.ThresholdBased != nil {
+	if config.Threshold != nil {
 		return NewThresholdBasedState(sampleInterval, config), nil
 	}
 
 	return nil, errors.New("No metric config found")
 }
 
-func (tbs *ThresholdBasedState) isMatchThresholdType(value float64) bool {
+func (tbs *ThresholdBasedState) computeSeverity(value float64) bool {
 	if tbs.Config.Type == "UB" {
-		return value >= tbs.Config.ThresholdBased.Value
+		return value >= tbs.Config.Threshold.Value
 	} else {
-		return value <= tbs.Config.ThresholdBased.Value
+		return value <= tbs.Config.Threshold.Value
 	}
 }
 
-func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, value float64) *DerivedMetric {
-	if tbs.isMatchThresholdType(value) {
+func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult {
+	var metricValue float64
+	metricName := fmt.Sprintf("%s/%s", tbs.Config.MetricName, tbs.Config.Type)
+	if tbs.Config.Normalizer != nil {
+		normalizerValue := metricData.NormalizersData[*tbs.Config.Normalizer][metricData.NodeName]
+		metricValue = (metricData.Value / normalizerValue)
+		metricName = fmt.Sprintf("%s_normalized/%s", tbs.Config.MetricName, tbs.Config.Type)
+	} else {
+		metricValue = metricData.Value
+	}
+
+	if tbs.computeSeverity(metricValue) {
 		hitsLength := len(tbs.Hits)
 		if hitsLength > 0 {
 			// Fill in missing metric points
@@ -97,8 +115,8 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, value float6
 		tbs.Hits = append(tbs.Hits, currentTime)
 	}
 
-	return &DerivedMetric{
-		Name:  tbs.Config.MetricName,
+	return &DerivedMetricResult{
+		Name:  metricName,
 		Value: float64(len(tbs.Hits)) / float64(tbs.TotalCount),
 	}
 }
@@ -146,25 +164,11 @@ func NewDerivedMetrics(sampleInterval int64, configs []DerivedMetricConfig) (*De
 	}, nil
 }
 
-func (ae *DerivedMetrics) ProcessMetric(currentTime int64, metricName string, value float64) (*DerivedMetric, error) {
-	state, ok := ae.States[metricName]
+func (dm *DerivedMetrics) ProcessMetric(currentTime int64, metricData *MetricData) (*DerivedMetricResult, error) {
+	state, ok := dm.States[metricData.MetricName]
 	if !ok {
-		for _, globConfig := range ae.GlobConfigs {
-			if globConfig.Pattern.Match(metricName) {
-				calculator, err := NewDerivedMetricCalculator(ae.SampleInterval, globConfig.Config)
-				if err != nil {
-					return nil, fmt.Errorf("Unable to create state for metric %s: %s", metricName, err.Error())
-				}
-				ae.States[metricName] = calculator
-				state = calculator
-				break
-			}
-		}
-
-		if state == nil {
-			return nil, nil
-		}
+		return nil, nil
 	}
 
-	return state.GetDerivedMetric(currentTime, value), nil
+	return state.GetDerivedMetric(currentTime, metricData), nil
 }

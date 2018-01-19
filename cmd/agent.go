@@ -45,11 +45,12 @@ func NewNodeAgent(config *viper.Viper) (*NodeAgent, error) {
 	log.Infof("%d Tasks are configured to load: ", len(taskDef.Tasks))
 	for _, task := range taskDef.Tasks {
 		if task.Process != nil {
-			log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s",
-				task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
 			if task.Process.Analyze != nil {
 				log.Infof("Task {%s}: collect={%s}, process={%s}, analyze={%s}, publisher = %s",
 					task.Id, task.Collect.PluginName, task.Process.PluginName, task.Process.Analyze.PluginName, *task.Publish)
+			} else {
+				log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s",
+					task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
 			}
 		} else {
 			log.Infof("Task {%s}: collect={%s}, publisher = %s",
@@ -84,7 +85,7 @@ func (nodeAgent *NodeAgent) Init() error {
 	// init all tasks
 	for _, task := range nodeAgent.TasksDef.Tasks {
 		if err := nodeAgent.CreateTask(task); err != nil {
-			log.Errorf("unable to create task {%s}: %s", task.Id, err.Error())
+			log.Errorf("Unable to create task {%s}: %s", task.Id, err.Error())
 			return err
 		}
 	}
@@ -131,7 +132,7 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 	newTask, err := NewHyperpilotTask(task, task.Id, metricTypes,
 		taskCollector, taskProcessor, taskAnalyzer, nodeAgent)
 	if err != nil {
-		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
+		return errors.New(fmt.Sprintf("Unable to new agent task {%s}: %s", task.Id, err.Error()))
 	}
 
 	if _, ok := nodeAgent.Tasks[task.Id]; ok {

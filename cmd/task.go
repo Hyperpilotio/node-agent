@@ -132,7 +132,9 @@ func (task *HyperpilotTask) Run() {
 						continue
 					}
 					for _, publish := range task.PublishConfig.AnalyzerPublisher {
-						publish.Put(derivedMetrics)
+						if len(derivedMetrics) > 0 {
+							publish.Put(derivedMetrics)
+						}
 					}
 				}
 				for _, publish := range task.PublishConfig.Publisher {
