@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"time"
+	"fmt"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 )
 
 type HyperpilotPublisher struct {
+	Task         *common.Publish
 	MetricBuf    chan []snap.Metric
 	Publisher    publisher.Publisher
 	Config       snap.Config
@@ -22,11 +24,12 @@ type HyperpilotPublisher struct {
 func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPublisher, error) {
 	publisher, cfg, err := publisher.NewPublisher(p.PluginName, p.Config)
 	if err != nil {
-		return nil, errors.New("Unable to create publisher: " + err.Error())
+		return nil, errors.New(fmt.Sprintf("Unable to create publisher {%s}: %s", p.PluginName, err.Error()))
 	}
 
 	queue := make(chan []snap.Metric, 100)
 	return &HyperpilotPublisher{
+		Task:      p,
 		MetricBuf: queue,
 		Publisher: publisher,
 		Config:    cfg,
@@ -42,12 +45,7 @@ func (publisher *HyperpilotPublisher) Run() {
 			case metrics := <-publisher.MetricBuf:
 				if err := publisher.Publisher.Publish(metrics, publisher.Config); err != nil {
 					publisher.FailureCount++
-					publisher.reportError(common.PublisherReport{
-						Id:            publisher.Id,
-						LastErrorMsg:  err.Error(),
-						LastErrorTime: time.Now().UnixNano() / 1000000,
-						FailureCount:  publisher.FailureCount,
-					})
+					publisher.reportError(err)
 					log.Warnf("Publiser push metric fail: %s", err.Error())
 				}
 			}
@@ -59,6 +57,13 @@ func (publisher *HyperpilotPublisher) Put(metrics []snap.Metric) {
 	publisher.MetricBuf <- metrics
 }
 
-func (publisher *HyperpilotPublisher) reportError(report common.PublisherReport) {
+func (publisher *HyperpilotPublisher) reportError(err error) {
+	report := common.PublisherReport{
+		Id:            publisher.Id,
+		Plugin:        publisher.Task.PluginName,
+		LastErrorMsg:  err.Error(),
+		LastErrorTime: time.Now().UnixNano() / 1000000,
+		FailureCount:  publisher.FailureCount,
+	}
 	publisher.Agent.UpdatePublishReport(report)
 }

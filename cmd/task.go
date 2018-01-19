@@ -21,7 +21,7 @@ type HyperpilotTask struct {
 	Processor      processor.Processor
 	Publisher      []*HyperpilotPublisher
 	CollectMetrics []snap.Metric
-	FailreCount    int64
+	FailureCount   int64
 	Agent          *NodeAgent
 }
 
@@ -86,26 +86,16 @@ func (task *HyperpilotTask) Run() {
 			case <-tick:
 				metrics, err := task.collect()
 				if err != nil {
-					task.FailreCount++
+					task.FailureCount++
 					log.Warnf("collect metric fail, skip this time: %s", err.Error())
-					task.reportError(common.TaskReport{
-						Id:            task.Id,
-						LastErrorMsg:  err.Error(),
-						LastErrorTime: time.Now().UnixNano() / 1000000,
-						FailureCount:  task.FailreCount,
-					})
+					task.reportError(err)
 					continue
 				}
 				if task.Processor != nil {
-					task.FailreCount++
+					task.FailureCount++
 					metrics, err = task.process(metrics, task.Task.Process.Config)
 					if err != nil {
-						task.reportError(common.TaskReport{
-							Id:            task.Id,
-							LastErrorMsg:  err.Error(),
-							LastErrorTime: time.Now().UnixNano() / 1000000,
-							FailureCount:  task.FailreCount,
-						})
+						task.reportError(err)
 						log.Warnf("process metric fail, skip this time: %s", err.Error())
 						continue
 					}
@@ -186,6 +176,13 @@ func (task *HyperpilotTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.
 	return task.Processor.Process(mts, cfg)
 }
 
-func (task *HyperpilotTask) reportError(report common.TaskReport) {
+func (task *HyperpilotTask) reportError(err error) {
+	report := common.TaskReport{
+		Id:            task.Id,
+		Plugin:        task.Task.Process.PluginName,
+		LastErrorMsg:  err.Error(),
+		LastErrorTime: time.Now().UnixNano() / 1000000,
+		FailureCount:  task.FailureCount,
+	}
 	task.Agent.UpdateTaskReport(report)
 }

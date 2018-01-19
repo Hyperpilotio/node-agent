@@ -195,12 +195,16 @@ func fillTaskReport(agent *NodeAgent, report *common.Report) {
 	agent.taskReportLock.RLock()
 	defer agent.taskReportLock.RUnlock()
 
-	report.Tasks = agent.TasksReport
+	for key, value := range agent.TasksReport {
+		report.Tasks[key] = value
+	}
 }
 
 func fillPublisherReport(agent *NodeAgent, report *common.Report) {
 	agent.publisherReportLock.RLock()
 	defer agent.publisherReportLock.RUnlock()
 
-	report.Publisher = agent.PublishersReport
+	for key, value := range agent.PublishersReport {
+		report.Publisher[key] = value
+	}
 }
