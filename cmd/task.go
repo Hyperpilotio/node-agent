@@ -4,14 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gobwas/glob"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
-	"github.com/hyperpilotio/node-agent/pkg/publisher"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
 )
@@ -21,8 +19,10 @@ type HyperpilotTask struct {
 	Id             string
 	Collector      collector.Collector
 	Processor      processor.Processor
-	Publisher      []*publisher.HyperpilotPublisher
+	Publisher      []*HyperpilotPublisher
 	CollectMetrics []snap.Metric
+	FailureCount   int64
+	Agent          *NodeAgent
 }
 
 func NewHyperpilotTask(
@@ -31,11 +31,11 @@ func NewHyperpilotTask(
 	allMetricTypes []snap.Metric,
 	collector collector.Collector,
 	processor processor.Processor,
-	publishers map[string]*publisher.HyperpilotPublisher) (*HyperpilotTask, error) {
-	var pubs []*publisher.HyperpilotPublisher
+	agent *NodeAgent) (*HyperpilotTask, error) {
+	var pubs []*HyperpilotPublisher
 
 	for _, pubId := range *task.Publish {
-		p, ok := publishers[pubId]
+		p, ok := agent.Publishers[pubId]
 		if ok {
 			log.Infof("Publisher {%s} is loaded for Task {%s}", pubId, task.Id)
 			pubs = append(pubs, p)
@@ -45,6 +45,7 @@ func NewHyperpilotTask(
 	}
 
 	metricPatterns := []glob.Glob{}
+
 	for name := range task.Collect.Metrics {
 		pattern, err := glob.Compile(name)
 		if err != nil {
@@ -67,10 +68,11 @@ func NewHyperpilotTask(
 		Processor:      processor,
 		Publisher:      pubs,
 		CollectMetrics: cmts,
+		Agent:          agent,
 	}, nil
 }
 
-func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
+func (task *HyperpilotTask) Run() {
 	waitTime, err := time.ParseDuration(task.Task.Schedule.Interval)
 	if err != nil {
 		log.Warnf("Parse schedule interval {%s} fail, use default interval 5 seconds",
@@ -84,18 +86,25 @@ func (task *HyperpilotTask) Run(wg *sync.WaitGroup) {
 			case <-tick:
 				metrics, err := task.collect()
 				if err != nil {
+					task.FailureCount++
 					log.Warnf("collect metric fail, skip this time: %s", err.Error())
+					task.reportError(err)
 					continue
 				}
 				if task.Processor != nil {
-					metrics, _ = task.process(metrics, task.Task.Process.Config)
+					task.FailureCount++
+					metrics, err = task.process(metrics, task.Task.Process.Config)
+					if err != nil {
+						task.reportError(err)
+						log.Warnf("process metric fail, skip this time: %s", err.Error())
+						continue
+					}
 				}
 				for _, publish := range task.Publisher {
 					publish.Put(metrics)
 				}
 			}
 		}
-		wg.Done()
 	}()
 }
 
@@ -165,4 +174,15 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 
 func (task *HyperpilotTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
 	return task.Processor.Process(mts, cfg)
+}
+
+func (task *HyperpilotTask) reportError(err error) {
+	report := common.TaskReport{
+		Id:            task.Id,
+		Plugin:        task.Task.Process.PluginName,
+		LastErrorMsg:  err.Error(),
+		LastErrorTime: time.Now().UnixNano() / 1000000,
+		FailureCount:  task.FailureCount,
+	}
+	task.Agent.UpdateTaskReport(report)
 }

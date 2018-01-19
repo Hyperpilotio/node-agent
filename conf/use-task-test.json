@@ -19,7 +19,7 @@
         }
       },
       "publish": [
-        "json"
+        "influxsrv2"
       ]
     }
   ],
@@ -35,15 +35,15 @@
       "id": "influxsrv2",
       "plugin": "influxdb",
       "config": {
-        "host": "",
-        "port": 8186,
-        "database": "snapaverage",
+        "host": "localhost",
+        "scheme": "http",
+        "port": 8086,
         "user": "root",
         "password": "default",
+        "database":  "snap",
         "retention": "autogen",
-        "scheme": "http",
-        "https": false,
-        "skip-verify": false
+        "skip-verify": false,
+        "isMultiFields": false
       }
     }
   ]
