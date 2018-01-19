@@ -1,5 +1,5 @@
 hash: 5ef882c65120bdfb38892e9c2f5d3f8e0bc0fc51805f4db1ec17fc62fc8f1206
-updated: 2018-01-16T11:28:07.585213665+08:00
+updated: 2018-01-19T09:37:25.806960044+08:00
 imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
@@ -21,6 +21,13 @@ imports:
   - external/github.com/docker/docker/pkg/units
   - external/github.com/docker/docker/volume
   - external/github.com/opencontainers/runc/libcontainer/user
+- name: github.com/gin-contrib/sse
+  version: 22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae
+- name: github.com/gin-gonic/gin
+  version: d459835d2b077e44f7c9b453505ee29881d5d12d
+  subpackages:
+  - binding
+  - render
 - name: github.com/go-ole/go-ole
   version: a41e3c4b706f6ae8dfbff342b06e40fa4d2d0506
   subpackages:
@@ -53,6 +60,8 @@ imports:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/mattn/go-isatty
+  version: 0360b2af4f38e8d38c7fce2a9f4e702702d73a39
 - name: github.com/matttproud/golang_protobuf_extensions
   version: d0c3fe89de86839aecf2e0579c40ba3bb336a453
   subpackages:
@@ -94,6 +103,10 @@ imports:
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/StackExchange/wmi
   version: ea383cf3ba6ec950874b8486cd72356d007c768f
+- name: github.com/ugorji/go
+  version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
+  subpackages:
+  - codec
 - name: golang.org/x/net
   version: 054b33e6527139ad5b1ec2f6232c3b175bd9a30c
   subpackages:
@@ -103,6 +116,10 @@ imports:
   subpackages:
   - unix
   - windows
+- name: gopkg.in/go-playground/validator.v8
+  version: c193cecd124b5cc722d7ee5538e945bdb3348435
+- name: gopkg.in/yaml.v2
+  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 testImports:
 - name: github.com/davecgh/go-spew
   version: 346938d642f2ec3594ed81d874461961cd0faa76
