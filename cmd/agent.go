@@ -5,14 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"sync"
 	"net/http"
+	"sync"
 
+	"github.com/gin-gonic/gin"
+	"github.com/hyperpilotio/node-agent/pkg/analyzer"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
 	log "github.com/sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
 
@@ -44,9 +45,15 @@ func NewNodeAgent(config *viper.Viper) (*NodeAgent, error) {
 	log.Infof("%d Tasks are configured to load: ", len(taskDef.Tasks))
 	for _, task := range taskDef.Tasks {
 		if task.Process != nil {
-			log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s", task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
+			log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s",
+				task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
+			if task.Process.Analyze != nil {
+				log.Infof("Task {%s}: collect={%s}, process={%s}, analyze={%s}, publisher = %s",
+					task.Id, task.Collect.PluginName, task.Process.PluginName, task.Process.Analyze.PluginName, *task.Publish)
+			}
 		} else {
-			log.Infof("Task {%s}: collect={%s}, publisher = %s", task.Id, task.Collect.PluginName, *task.Publish)
+			log.Infof("Task {%s}: collect={%s}, publisher = %s",
+				task.Id, task.Collect.PluginName, *task.Publish)
 		}
 	}
 
@@ -104,16 +111,25 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 	}
 
 	var taskProcessor processor.Processor
+	var taskAnalyzer analyzer.Analyzer
 	if task.Process != nil {
 		processName := task.Process.PluginName
 		taskProcessor, err = processor.NewProcessor(processName)
 		if err != nil {
 			return fmt.Errorf("unable to new %s processor for task %s: %s", processName, task.Id, err.Error())
 		}
+
+		if task.Process.Analyze != nil {
+			analyzeName := task.Process.Analyze.PluginName
+			taskAnalyzer, err = analyzer.NewAnalyzer(analyzeName)
+			if err != nil {
+				return fmt.Errorf("unable to new %s analyzer for task %s: %s", analyzeName, task.Id, err.Error())
+			}
+		}
 	}
 
 	newTask, err := NewHyperpilotTask(task, task.Id, metricTypes,
-		taskCollector, taskProcessor, nodeAgent)
+		taskCollector, taskProcessor, taskAnalyzer, nodeAgent)
 	if err != nil {
 		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
 	}
