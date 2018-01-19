@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"time"
+	"fmt"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
@@ -14,6 +15,7 @@ import (
 
 type HyperpilotPublisher struct {
 	Queue        *queue.Queue
+	Task         *common.Publish
 	Publisher    publisher.Publisher
 	Config       snap.Config
 	Agent        *NodeAgent
@@ -24,12 +26,13 @@ type HyperpilotPublisher struct {
 func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPublisher, error) {
 	publisher, cfg, err := publisher.NewPublisher(p.PluginName, p.Config)
 	if err != nil {
-		return nil, errors.New("Unable to create publisher: " + err.Error())
+		return nil, errors.New(fmt.Sprintf("Unable to create publisher {%s}: %s", p.PluginName, err.Error()))
 	}
 
 	queueSize := agent.Config.GetInt("PublisherQueueSize")
 	return &HyperpilotPublisher{
 		Queue:     queue.NewCappedQueue(queueSize),
+		Task:      p,
 		Publisher: publisher,
 		Config:    cfg,
 		Id:        p.Id,
@@ -77,12 +80,7 @@ func (publisher *HyperpilotPublisher) Run() {
 				err := backoff.Retry(retryPublish, b)
 				if err != nil {
 					publisher.FailureCount++
-					publisher.reportError(common.PublisherReport{
-						Id:            publisher.Id,
-						LastErrorMsg:  err.Error(),
-						LastErrorTime: time.Now().UnixNano() / 1000000,
-						FailureCount:  publisher.FailureCount,
-					})
+					publisher.reportError(err)
 					log.Warnf("Publisher {%s} push metric fail, %d metrics are dropped: %s", publisher.Id, len(batchMetrics), err.Error())
 				}
 				time.Sleep(1 * time.Second)
@@ -98,6 +96,13 @@ func (publisher *HyperpilotPublisher) Put(metrics []snap.Metric) {
 	}
 }
 
-func (publisher *HyperpilotPublisher) reportError(report common.PublisherReport) {
+func (publisher *HyperpilotPublisher) reportError(err error) {
+	report := common.PublisherReport{
+		Id:            publisher.Id,
+		Plugin:        publisher.Task.PluginName,
+		LastErrorMsg:  err.Error(),
+		LastErrorTime: time.Now().UnixNano() / 1000000,
+		FailureCount:  publisher.FailureCount,
+	}
 	publisher.Agent.UpdatePublishReport(report)
 }
