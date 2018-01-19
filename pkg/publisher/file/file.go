@@ -9,6 +9,7 @@ import (
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
+	"strings"
 )
 
 const (
@@ -72,7 +73,7 @@ func formatMetricTypes(mts []snap.Metric) []MetricToPublish {
 	for _, mt := range mts {
 		metrics = append(metrics, MetricToPublish{
 			Timestamp: mt.Timestamp,
-			Namespace: mt.Namespace.String(),
+			Namespace: "/" + strings.Join(mt.Namespace.Strings(), "/"),
 			Data:      mt.Data,
 			Unit:      mt.Unit,
 			Tags:      mt.Tags,

@@ -149,7 +149,7 @@ func addTags(tags map[string]map[string]string, mts []snap.Metric) []snap.Metric
 			mt.Tags = map[string]string{}
 		}
 
-		namespace := mt.Namespace.String()
+		namespace := "/" + strings.Join(mt.Namespace.Strings(), "/")
 		for prefix, entries := range tags {
 			if strings.HasPrefix(namespace, prefix) {
 				for k, v := range entries {
