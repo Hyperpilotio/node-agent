@@ -1,5 +1,7 @@
 package queue
 
+import log "github.com/sirupsen/logrus"
+
 // Queue is a FIFO (First in first out) data structure implementation.
 // It is based on a deque container and focuses its API on core
 // functionalities: Enqueue, Dequeue, Head, Size, Empty. Every operations time complexity
@@ -24,10 +26,13 @@ func NewQueue() *Queue {
 	}
 }
 
-// Enqueue adds an item at the back of the queue
-// returning true if successful or false if the deque is at capacity.
-func (q *Queue) Enqueue(item interface{}) bool {
-	return q.Prepend(item)
+// Enqueue adds an item at the back of the queue,
+// but remove the first element when queue is full
+func (q *Queue) Enqueue(item interface{}) {
+	for !q.Prepend(item) {
+		log.Warnf("Enqueue fail due to full queue, remove oldest metric")
+		q.Pop()
+	}
 }
 
 // Dequeue removes and returns the front queue item

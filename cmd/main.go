@@ -19,10 +19,6 @@ func main() {
 
 	}
 
-	//if *configPath == "" {
-	//	*configPath = "/etc/node_agent/tasks.json"
-	//}
-
 	nodeAgent, err := NewNodeAgent(config)
 	if err != nil {
 		log.Errorf("create agent fail: %s", err.Error())

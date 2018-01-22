@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	client "github.com/influxdata/influxdb/client/v2"
+	"github.com/influxdata/influxdb/client/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 )
@@ -262,9 +262,6 @@ func getLogger(config configuration) *log.Entry {
 		"plugin-version": Version,
 		"plugin-type":    PluginType,
 	})
-
-	// default
-	//log.SetLevel(log.WarnLevel)
 
 	levelValue := config.logLevel
 	if levelValue != "undefined" {

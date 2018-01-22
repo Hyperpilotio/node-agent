@@ -90,10 +90,7 @@ func (publisher *HyperpilotPublisher) Run() {
 }
 
 func (publisher *HyperpilotPublisher) Put(metrics []snap.Metric) {
-	for !publisher.Queue.Enqueue(metrics) {
-		log.Warnf("Enqueue fail due to full queue, remove oldest metric")
-		publisher.Queue.Dequeue()
-	}
+	publisher.Queue.Enqueue(metrics)
 }
 
 func (publisher *HyperpilotPublisher) reportError(err error) {
