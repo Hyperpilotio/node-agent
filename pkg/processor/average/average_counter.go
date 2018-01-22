@@ -233,6 +233,9 @@ func (p *SnapProcessor) Process(mts []snap.Metric, cfg snap.Config) ([]snap.Metr
 }
 
 func (p *SnapProcessor) CalculateAverageData(mt snap.Metric) (float64, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	cacheKey, err := p.getCacheKey(mt)
 	if err != nil {
 		return float64(0), errors.New("Unable to get cache key: " + err.Error())
@@ -260,13 +263,14 @@ func (p *SnapProcessor) CalculateAverageData(mt snap.Metric) (float64, error) {
 }
 
 func (p *SnapProcessor) removeExpiredCacheData(expiredTime time.Duration) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	nowTime := time.Now()
 	for key, cacheData := range p.Cache {
 		if nowTime.Sub(cacheData.Create) > expiredTime {
 			log.Debugf("Remove expired cache data: %s", key)
-			p.mutex.Lock()
 			delete(p.Cache, key)
-			p.mutex.Unlock()
 		}
 	}
 }
