@@ -30,17 +30,30 @@
                     "collect.namespaces": "default",
                     "collect.include_empty_namespace": true,
                     "average": "intel/psutil/net/all/*, intel/psutil/cpu/cpu-total/*"
-                },
-                "analyze": {
-                    "plugin": "nodeanalyzer",
-                    "config": {
-                        "sampleInterval": "5",
-                        "configUrl": "https://s3.amazonaws.com/jpra1113-node-agent/test_derived_metrics_config.json"
-                    },
-                    "publish": [
-                        "derivedmetrics"
-                    ]
                 }
+            },
+            "analyze": {
+                "plugin": "nodeanalyzer",
+                "config": {
+                    "sampleInterval": "5",
+                    "configs": [
+                        {
+                            "metric_name": "intel/psutil/vm/active",
+                            "type": "over_utilization",
+                            "resource": "memory",
+                            "normalizer": "intel/psutil/vm/total",
+                            "observation_window_sec": 60,
+                            "threshold": {
+                                "type": "UB",
+                                "value": 0.6645,
+                                "unit": ""
+                            }
+                        }
+                    ]
+                },
+                "publish": [
+                    "derivedmetrics"
+                ]
             },
             "publish": [
                 "snapaverage"
