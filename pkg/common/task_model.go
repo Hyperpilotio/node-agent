@@ -20,7 +20,6 @@ type Collect struct {
 type Process struct {
 	PluginName string      `json:"plugin"`
 	Config     snap.Config `json:"config"`
-	Analyze    *Analyze    `json:"analyze,omitempty"`
 }
 
 type Analyze struct {
@@ -40,6 +39,7 @@ type NodeTask struct {
 	Schedule Schedule  `json:"schedule"`
 	Collect  *Collect  `json:"collect"`
 	Process  *Process  `json:"process"`
+	Analyze  *Analyze  `json:"analyze"`
 	Publish  *[]string `json:"publish"`
 }
 

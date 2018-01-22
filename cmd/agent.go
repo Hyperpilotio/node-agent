@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -44,18 +45,21 @@ func NewNodeAgent(config *viper.Viper) (*NodeAgent, error) {
 
 	log.Infof("%d Tasks are configured to load: ", len(taskDef.Tasks))
 	for _, task := range taskDef.Tasks {
+		taskInfos := []string{}
+		taskInfos = append(taskInfos, fmt.Sprintf("Task {%s}: collect={%s}", task.Id, task.Collect.PluginName))
 		if task.Process != nil {
-			if task.Process.Analyze != nil {
-				log.Infof("Task {%s}: collect={%s}, process={%s}, analyze={%s}, publisher = %s",
-					task.Id, task.Collect.PluginName, task.Process.PluginName, task.Process.Analyze.PluginName, *task.Publish)
-			} else {
-				log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s",
-					task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
-			}
-		} else {
-			log.Infof("Task {%s}: collect={%s}, publisher = %s",
-				task.Id, task.Collect.PluginName, *task.Publish)
+			taskInfos = append(taskInfos, fmt.Sprintf("process={%s}", task.Process.PluginName))
 		}
+
+		if task.Analyze != nil {
+			taskInfos = append(taskInfos, fmt.Sprintf("analyze={%s}", task.Analyze.PluginName))
+			if task.Analyze.Publish != nil {
+				taskInfos = append(taskInfos, fmt.Sprintf("analyzePublisher={%s}", *task.Analyze.Publish))
+			}
+		}
+
+		taskInfos = append(taskInfos, fmt.Sprintf("publisher = %s", *task.Publish))
+		log.Infof(strings.Join(taskInfos, ", "))
 	}
 
 	log.Infof("%d Puslisher are configured to load", len(taskDef.Publish))
@@ -112,20 +116,20 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 	}
 
 	var taskProcessor processor.Processor
-	var taskAnalyzer analyzer.Analyzer
 	if task.Process != nil {
 		processName := task.Process.PluginName
 		taskProcessor, err = processor.NewProcessor(processName)
 		if err != nil {
 			return fmt.Errorf("unable to new %s processor for task %s: %s", processName, task.Id, err.Error())
 		}
+	}
 
-		if task.Process.Analyze != nil {
-			analyzeName := task.Process.Analyze.PluginName
-			taskAnalyzer, err = analyzer.NewAnalyzer(analyzeName)
-			if err != nil {
-				return fmt.Errorf("unable to new %s analyzer for task %s: %s", analyzeName, task.Id, err.Error())
-			}
+	var taskAnalyzer analyzer.Analyzer
+	if task.Analyze != nil {
+		analyzeName := task.Analyze.PluginName
+		taskAnalyzer, err = analyzer.NewAnalyzer(analyzeName)
+		if err != nil {
+			return fmt.Errorf("unable to new %s analyzer for task %s: %s", analyzeName, task.Id, err.Error())
 		}
 	}
 

@@ -52,8 +52,8 @@ func NewHyperpilotTask(
 	}
 
 	var analyzerPubs []*HyperpilotPublisher
-	if task.Process != nil && task.Process.Analyze != nil {
-		for _, pubId := range *task.Process.Analyze.Publish {
+	if task.Analyze != nil {
+		for _, pubId := range *task.Analyze.Publish {
 			p, ok := agent.Publishers[pubId]
 			if ok {
 				log.Infof("Publisher {%s} is loaded for Task {%s}", pubId, task.Id)
@@ -125,7 +125,7 @@ func (task *HyperpilotTask) Run() {
 				}
 				if task.Analyzer != nil {
 					task.FailureCount++
-					derivedMetrics, err := task.analyze(metrics, task.Task.Process.Analyze.Config)
+					derivedMetrics, err := task.analyze(metrics, task.Task.Analyze.Config)
 					if err != nil {
 						task.reportError(err)
 						log.Warnf("analyze metric fail, skip this time: %s", err.Error())
