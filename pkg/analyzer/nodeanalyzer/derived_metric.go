@@ -2,26 +2,23 @@ package nodeanalyzer
 
 import (
 	"errors"
-	"fmt"
-	"strings"
-
-	"github.com/gobwas/glob"
 )
+
+type DerivedMetricCalculator interface {
+	GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult
+}
 
 type MetricData struct {
 	MetricName      string
 	Value           float64
 	NodeName        string
+	Tags            map[string]string
 	NormalizersData map[string]map[string]float64
 }
 
 type DerivedMetricResult struct {
 	Name  string
 	Value float64
-}
-
-type DerivedMetricCalculator interface {
-	GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult
 }
 
 type DerivedMetricConfig struct {
@@ -32,7 +29,7 @@ type DerivedMetricConfig struct {
 	ObservationWindowSec int64             `json:"observation_window_sec"`
 	Tags                 map[string]string `json:"tags,omitempty"`
 
-	Threshold *ThresholdBasedConfig `json:"threshold"`
+	ThresholdConfig *ThresholdBasedConfig `json:"threshold"`
 }
 
 type ThresholdBasedConfig struct {
@@ -42,45 +39,69 @@ type ThresholdBasedConfig struct {
 }
 
 type ThresholdBasedState struct {
-	Config         *DerivedMetricConfig
-	Hits           []int64
-	TotalCount     int64
-	SampleInterval int64
+	MetricName          string
+	DerivedMetricConfig *DerivedMetricConfig
+	Hits                []int64
+	TotalCount          int64
+	SampleInterval      int64
 }
 
 func NewThresholdBasedState(sampleInterval int64, config *DerivedMetricConfig) *ThresholdBasedState {
 	totalCount := config.ObservationWindowSec / sampleInterval
+	metricName := config.MetricName + "/" + config.Type
+	if config.Normalizer != nil {
+		metricName = config.MetricName + "_normalized/" + config.Type
+	}
+
 	return &ThresholdBasedState{
-		Config:         config,
-		Hits:           make([]int64, 0),
-		TotalCount:     totalCount,
-		SampleInterval: sampleInterval,
+		MetricName:          metricName,
+		DerivedMetricConfig: config,
+		Hits:                make([]int64, 0),
+		TotalCount:          totalCount,
+		SampleInterval:      sampleInterval,
 	}
 }
 
 func NewDerivedMetricCalculator(sampleInterval int64, config *DerivedMetricConfig) (DerivedMetricCalculator, error) {
-	if config.Threshold != nil {
+	if config.ThresholdConfig != nil {
 		return NewThresholdBasedState(sampleInterval, config), nil
 	}
 
 	return nil, errors.New("No metric config found")
 }
 
+func (tbs *ThresholdBasedState) matchFilterTags(metricData *MetricData) bool {
+	if tbs.DerivedMetricConfig.Tags != nil {
+		for k, v := range tbs.DerivedMetricConfig.Tags {
+			if v != metricData.Tags[k] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (tbs *ThresholdBasedState) computeSeverity(value float64) bool {
-	if tbs.Config.Type == "UB" {
-		return value >= tbs.Config.Threshold.Value
+	if tbs.DerivedMetricConfig.ThresholdConfig.Unit == "ms" {
+		value = value / 1000
+	}
+
+	if tbs.DerivedMetricConfig.Type == "UB" {
+		return value >= tbs.DerivedMetricConfig.ThresholdConfig.Value
 	} else {
-		return value <= tbs.Config.Threshold.Value
+		return value <= tbs.DerivedMetricConfig.ThresholdConfig.Value
 	}
 }
 
 func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult {
+	if !tbs.matchFilterTags(metricData) {
+		return nil
+	}
+
 	var metricValue float64
-	metricName := fmt.Sprintf("%s/%s", tbs.Config.MetricName, tbs.Config.Type)
-	if tbs.Config.Normalizer != nil {
-		normalizerValue := metricData.NormalizersData[*tbs.Config.Normalizer][metricData.NodeName]
+	if tbs.DerivedMetricConfig.Normalizer != nil {
+		normalizerValue := metricData.NormalizersData[*tbs.DerivedMetricConfig.Normalizer][metricData.NodeName]
 		metricValue = (metricData.Value / normalizerValue)
-		metricName = fmt.Sprintf("%s_normalized/%s", tbs.Config.MetricName, tbs.Config.Type)
 	} else {
 		metricValue = metricData.Value
 	}
@@ -96,7 +117,7 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData *
 		}
 
 		// Prune values outside of window
-		windowBeginTime := currentTime - tbs.Config.ObservationWindowSec
+		windowBeginTime := currentTime - tbs.DerivedMetricConfig.ObservationWindowSec
 		lastGoodIndex := -1
 		for i, hit := range tbs.Hits {
 			if hit >= windowBeginTime {
@@ -116,51 +137,27 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData *
 	}
 
 	return &DerivedMetricResult{
-		Name:  metricName,
+		Name:  tbs.MetricName,
 		Value: float64(len(tbs.Hits)) / float64(tbs.TotalCount),
 	}
 }
 
-type GlobConfig struct {
-	Config  *DerivedMetricConfig
-	Pattern glob.Glob
-}
-
 type DerivedMetrics struct {
-	States         map[string]DerivedMetricCalculator
-	SampleInterval int64
-	GlobConfigs    []GlobConfig
+	States map[string]DerivedMetricCalculator
 }
 
 func NewDerivedMetrics(sampleInterval int64, configs []DerivedMetricConfig) (*DerivedMetrics, error) {
 	states := map[string]DerivedMetricCalculator{}
-	globConfigs := []GlobConfig{}
-
 	for _, config := range configs {
-		// We assume any metric name with wildcard is a pattern to be matched
-		if strings.Contains(config.MetricName, "/*") {
-			pattern, err := glob.Compile(config.MetricName)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to compile pattern %s: %s", config.MetricName, err.Error())
-			}
-			globConfig := GlobConfig{
-				Config:  &config,
-				Pattern: pattern,
-			}
-			globConfigs = append(globConfigs, globConfig)
-		} else {
-			calculator, err := NewDerivedMetricCalculator(sampleInterval, &config)
-			if err != nil {
-				return nil, errors.New("Unable to create derived metric calculator: " + err.Error())
-			}
-			states[config.MetricName] = calculator
+		calculator, err := NewDerivedMetricCalculator(sampleInterval, &config)
+		if err != nil {
+			return nil, errors.New("Unable to create derived metric calculator: " + err.Error())
 		}
+		states[config.MetricName] = calculator
 	}
 
 	return &DerivedMetrics{
-		States:         states,
-		SampleInterval: sampleInterval,
-		GlobConfigs:    globConfigs,
+		States: states,
 	}, nil
 }
 

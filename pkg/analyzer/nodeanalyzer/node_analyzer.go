@@ -71,6 +71,7 @@ func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) 
 			MetricName:      strings.Join(mt.Namespace.Strings(), "/"),
 			NodeName:        mt.Tags["nodename"],
 			Value:           convertFloat64(mt.Data),
+			Tags:            mt.Tags,
 			NormalizersData: normalizersData,
 		}
 		derivedMetric, err := p.DerivedMetrics.ProcessMetric(currentTime, metricData)
