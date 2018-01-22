@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
@@ -15,28 +15,9 @@ import (
 )
 
 type NodeAnalyzer struct {
-	DerivedMetrics *DerivedMetrics
-	Normalizers    []string
-}
-
-type MetricConfigs struct {
-	Configs []DerivedMetricConfig `json:"configs" binding:"required"`
-}
-
-func downloadConfigFile(url string) (*MetricConfigs, error) {
-	response, err := http.Get(url)
-	if err != nil {
-		return nil, errors.New("Unable to download config file: " + err.Error())
-	}
-	defer response.Body.Close()
-
-	decoder := json.NewDecoder(response.Body)
-	configs := MetricConfigs{}
-	if err := decoder.Decode(&configs); err != nil {
-		return nil, errors.New("Unable to decode body: " + err.Error())
-	}
-
-	return &configs, nil
+	DerivedMetrics      *DerivedMetrics
+	NormalizerDataCache map[string]float64
+	mutex               sync.Mutex
 }
 
 func init() {
@@ -46,33 +27,44 @@ func init() {
 // NewProcessor generate processor
 func NewAnalyzer() *NodeAnalyzer {
 	return &NodeAnalyzer{
-		Normalizers: make([]string, 0),
+		NormalizerDataCache: make(map[string]float64),
+	}
+}
+
+func (p *NodeAnalyzer) cacheNormalizerData(mts []snap.Metric) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	for _, mt := range mts {
+		metricNm := strings.Join(mt.Namespace.Strings(), "/")
+		nodename := mt.Tags["nodename"]
+		cacheKey := nodename + "/" + metricNm
+		for normalizerNm, _ := range p.NormalizerDataCache {
+			if strings.HasPrefix("intel/docker", normalizerNm) && strings.HasPrefix("intel/docker", metricNm) {
+				dockerId := mt.Namespace.Strings()[2]
+				normalizerNm = strings.Replace(normalizerNm, "*", dockerId, 1)
+			}
+
+			if metricNm == normalizerNm {
+				p.NormalizerDataCache[cacheKey] = convertFloat64(mt.Data)
+			}
+		}
 	}
 }
 
 func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) {
+	p.cacheNormalizerData(mts)
+	log.Infof("Cache normalizer data: %+v", p.NormalizerDataCache)
+
 	metrics := []snap.Metric{}
-
-	normalizersData := map[string]map[string]float64{}
-	for _, mt := range mts {
-		metricNm := strings.Join(mt.Namespace.Strings(), "/")
-		for _, normalizersNm := range p.Normalizers {
-			if metricNm == normalizersNm {
-				normalizer := map[string]float64{}
-				normalizer[mt.Tags["nodename"]] = convertFloat64(mt.Data)
-				normalizersData[metricNm] = normalizer
-			}
-		}
-	}
-
 	for _, mt := range mts {
 		currentTime := mt.Timestamp.UnixNano()
-		metricData := &MetricData{
-			MetricName:      strings.Join(mt.Namespace.Strings(), "/"),
-			NodeName:        mt.Tags["nodename"],
-			Value:           convertFloat64(mt.Data),
-			Tags:            mt.Tags,
-			NormalizersData: normalizersData,
+		metricData := MetricData{
+			MetricName:          strings.Join(mt.Namespace.Strings(), "/"),
+			NodeName:            mt.Tags["nodename"],
+			Value:               convertFloat64(mt.Data),
+			Tags:                mt.Tags,
+			NormalizerDataCache: p.NormalizerDataCache,
 		}
 		derivedMetric, err := p.DerivedMetrics.ProcessMetric(currentTime, metricData)
 		if err != nil {
@@ -99,19 +91,28 @@ func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) 
 // Analyze test analyze function
 func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
 	if p.DerivedMetrics == nil {
-		configUrl, err := cfg.GetString("configUrl")
-		if err != nil {
-			return nil, errors.New("Unable to find derived metrics config endpoint: " + err.Error())
+		configs, ok := cfg["configs"]
+		if !ok {
+			return nil, snap.ErrConfigNotFound
 		}
 
-		configs, err := downloadConfigFile(configUrl)
-		if err != nil {
-			return nil, errors.New("Unable to download and deserialize configs: " + err.Error())
-		}
-		for _, dmCfg := range configs.Configs {
-			if dmCfg.Normalizer != nil {
-				p.Normalizers = append(p.Normalizers, *dmCfg.Normalizer)
+		dmCfgs := []DerivedMetricConfig{}
+		for _, config := range configs.([]interface{}) {
+			bytes, err := json.Marshal(config)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to marshal src: %s", err)
 			}
+
+			dmCfg := DerivedMetricConfig{}
+			err = json.Unmarshal(bytes, &dmCfg)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to unmarshal into dst: %s", err)
+			}
+
+			if dmCfg.Normalizer != nil {
+				p.NormalizerDataCache[*dmCfg.Normalizer] = 0
+			}
+			dmCfgs = append(dmCfgs, dmCfg)
 		}
 
 		interval, err := cfg.GetString("sampleInterval")
@@ -123,7 +124,7 @@ func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metri
 			return nil, fmt.Errorf("Unable to parse %s to int64: %s", interval, err.Error())
 		}
 
-		derivedMetrics, err := NewDerivedMetrics(sampleInterval, configs.Configs)
+		derivedMetrics, err := NewDerivedMetrics(sampleInterval, dmCfgs)
 		if err != nil {
 			return nil, errors.New("Unable to create derived metrics: " + err.Error())
 		}

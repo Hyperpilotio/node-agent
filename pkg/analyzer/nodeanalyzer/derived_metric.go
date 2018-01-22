@@ -2,18 +2,22 @@ package nodeanalyzer
 
 import (
 	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/gobwas/glob"
 )
 
 type DerivedMetricCalculator interface {
-	GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult
+	GetDerivedMetric(currentTime int64, metricData MetricData) *DerivedMetricResult
 }
 
 type MetricData struct {
-	MetricName      string
-	Value           float64
-	NodeName        string
-	Tags            map[string]string
-	NormalizersData map[string]map[string]float64
+	MetricName          string
+	Value               float64
+	NodeName            string
+	Tags                map[string]string
+	NormalizerDataCache map[string]float64
 }
 
 type DerivedMetricResult struct {
@@ -70,7 +74,7 @@ func NewDerivedMetricCalculator(sampleInterval int64, config *DerivedMetricConfi
 	return nil, errors.New("No metric config found")
 }
 
-func (tbs *ThresholdBasedState) matchFilterTags(metricData *MetricData) bool {
+func (tbs *ThresholdBasedState) matchFilterTags(metricData MetricData) bool {
 	if tbs.DerivedMetricConfig.Tags != nil {
 		for k, v := range tbs.DerivedMetricConfig.Tags {
 			if v != metricData.Tags[k] {
@@ -93,14 +97,15 @@ func (tbs *ThresholdBasedState) computeSeverity(value float64) bool {
 	}
 }
 
-func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData *MetricData) *DerivedMetricResult {
+func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData MetricData) *DerivedMetricResult {
 	if !tbs.matchFilterTags(metricData) {
 		return nil
 	}
 
 	var metricValue float64
 	if tbs.DerivedMetricConfig.Normalizer != nil {
-		normalizerValue := metricData.NormalizersData[*tbs.DerivedMetricConfig.Normalizer][metricData.NodeName]
+		key := metricData.NodeName + "/" + *tbs.DerivedMetricConfig.Normalizer
+		normalizerValue := metricData.NormalizerDataCache[key]
 		metricValue = (metricData.Value / normalizerValue)
 	} else {
 		metricValue = metricData.Value
@@ -142,29 +147,67 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData *
 	}
 }
 
+type GlobConfig struct {
+	Config  *DerivedMetricConfig
+	Pattern glob.Glob
+}
+
 type DerivedMetrics struct {
-	States map[string]DerivedMetricCalculator
+	States         map[string]DerivedMetricCalculator
+	GlobConfigs    []GlobConfig
+	SampleInterval int64
 }
 
 func NewDerivedMetrics(sampleInterval int64, configs []DerivedMetricConfig) (*DerivedMetrics, error) {
 	states := map[string]DerivedMetricCalculator{}
+	globConfigs := []GlobConfig{}
+
 	for _, config := range configs {
-		calculator, err := NewDerivedMetricCalculator(sampleInterval, &config)
-		if err != nil {
-			return nil, errors.New("Unable to create derived metric calculator: " + err.Error())
+		// We assume any metric name with wildcard is a pattern to be matched
+		if strings.Contains(config.MetricName, "/*") {
+			pattern, err := glob.Compile(config.MetricName)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to compile pattern %s: %s", config.MetricName, err.Error())
+			}
+			globConfig := GlobConfig{
+				Config:  &config,
+				Pattern: pattern,
+			}
+			globConfigs = append(globConfigs, globConfig)
+		} else {
+			calculator, err := NewDerivedMetricCalculator(sampleInterval, &config)
+			if err != nil {
+				return nil, errors.New("Unable to create derived metric calculator: " + err.Error())
+			}
+			states[config.MetricName] = calculator
 		}
-		states[config.MetricName] = calculator
 	}
 
 	return &DerivedMetrics{
-		States: states,
+		States:         states,
+		GlobConfigs:    globConfigs,
+		SampleInterval: sampleInterval,
 	}, nil
 }
 
-func (dm *DerivedMetrics) ProcessMetric(currentTime int64, metricData *MetricData) (*DerivedMetricResult, error) {
+func (dm *DerivedMetrics) ProcessMetric(currentTime int64, metricData MetricData) (*DerivedMetricResult, error) {
 	state, ok := dm.States[metricData.MetricName]
 	if !ok {
-		return nil, nil
+		for _, globConfig := range dm.GlobConfigs {
+			if globConfig.Pattern.Match(metricData.MetricName) {
+				calculator, err := NewDerivedMetricCalculator(dm.SampleInterval, globConfig.Config)
+				if err != nil {
+					return nil, fmt.Errorf("Unable to create state for metric %s: %s", metricData.MetricName, err.Error())
+				}
+				dm.States[metricData.MetricName] = calculator
+				state = calculator
+				break
+			}
+		}
+
+		if state == nil {
+			return nil, nil
+		}
 	}
 
 	return state.GetDerivedMetric(currentTime, metricData), nil
