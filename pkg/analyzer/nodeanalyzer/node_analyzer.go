@@ -133,7 +133,6 @@ func (p *NodeAnalyzer) getMetricTypes(mts []snap.Metric) ([]snap.Metric, error) 
 	return metrics, nil
 }
 
-// Analyze test analyze function
 func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
 	if len(mts) == 0 {
 		return nil, errors.New("Unable to get metrics to analyze")
@@ -174,6 +173,7 @@ func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metri
 		if err != nil {
 			return nil, errors.New("Unable to find sampleInterval duration: " + err.Error())
 		}
+
 		sampleInterval, err := time.ParseDuration(interval)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to parse %s to duration: %s", interval, err.Error())
@@ -191,6 +191,7 @@ func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metri
 	if err != nil {
 		return nil, errors.New("Unable to get metric types to analyze: " + err.Error())
 	}
+
 	if len(analyzeMts) == 0 {
 		return nil, fmt.Errorf("No metrics are needed to analyze")
 	}
