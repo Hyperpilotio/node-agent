@@ -59,6 +59,9 @@ func NewThresholdBasedState(sampleInterval int64, config *DerivedMetricConfig) *
 	if strings.HasPrefix(metricName, "/") {
 		metricName = metricName[1:]
 	}
+	if strings.Contains(metricName, "/*/") {
+		metricName = strings.Replace(metricName, "/*/", "/", -1)
+	}
 
 	return &ThresholdBasedState{
 		MetricName:          metricName,
