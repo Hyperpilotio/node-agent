@@ -13,10 +13,12 @@ import (
 	"github.com/hyperpilotio/node-agent/pkg/processor"
 	log "github.com/sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
 type NodeAgent struct {
-	Config              *common.TasksDefinition
+	Config              *viper.Viper
+	TasksDef            *common.TasksDefinition
 	taskLock            sync.Mutex
 	Tasks               map[string]*HyperpilotTask
 	publisherLock       sync.Mutex
@@ -27,7 +29,8 @@ type NodeAgent struct {
 	PublishersReport    map[string]common.PublisherReport
 }
 
-func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
+func NewNodeAgent(config *viper.Viper) (*NodeAgent, error) {
+	taskFilePath := config.GetString("TaskConfiguration")
 	b, err := ioutil.ReadFile(taskFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to read %s dir: %s", taskFilePath, err.Error())
@@ -53,7 +56,8 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 	}
 
 	return &NodeAgent{
-		Config:           taskDef,
+		Config:           config,
+		TasksDef:         taskDef,
 		Tasks:            make(map[string]*HyperpilotTask),
 		Publishers:       make(map[string]*HyperpilotPublisher),
 		TasksReport:      make(map[string]common.TaskReport),
@@ -63,7 +67,7 @@ func NewNodeAgent(taskFilePath string) (*NodeAgent, error) {
 
 func (nodeAgent *NodeAgent) Init() error {
 	// init publisher first
-	for _, p := range nodeAgent.Config.Publish {
+	for _, p := range nodeAgent.TasksDef.Publish {
 		if err := nodeAgent.CreatePublisher(p); err != nil {
 			log.Errorf("unable to create publisher {%s}: %s", p.Id, err.Error())
 			return err
@@ -71,7 +75,7 @@ func (nodeAgent *NodeAgent) Init() error {
 	}
 
 	// init all tasks
-	for _, task := range nodeAgent.Config.Tasks {
+	for _, task := range nodeAgent.TasksDef.Tasks {
 		if err := nodeAgent.CreateTask(task); err != nil {
 			log.Errorf("unable to create task {%s}: %s", task.Id, err.Error())
 			return err
@@ -79,7 +83,7 @@ func (nodeAgent *NodeAgent) Init() error {
 	}
 
 	// start node agent api server
-	go nodeAgent.startAPIServer()
+	go nodeAgent.startAPIServer(nodeAgent.Config.GetString("APIServerPort"))
 
 	return nil
 }
@@ -146,7 +150,7 @@ func (nodeAgent *NodeAgent) Run() {
 	}
 }
 
-func (nodeAgent *NodeAgent) startAPIServer() {
+func (nodeAgent *NodeAgent) startAPIServer(port string) {
 	router := gin.New()
 
 	// Global middleware
@@ -159,7 +163,7 @@ func (nodeAgent *NodeAgent) startAPIServer() {
 	}
 
 	log.Infof("API Server starts")
-	err := router.Run(":7000")
+	err := router.Run(":" + port)
 	if err != nil {
 		log.Errorf(" api server cannot start :%s", err.Error())
 	}

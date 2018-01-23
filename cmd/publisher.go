@@ -9,11 +9,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/publisher"
+	"github.com/hyperpilotio/node-agent/pkg/common/queue"
+	"github.com/cenkalti/backoff"
 )
 
 type HyperpilotPublisher struct {
+	Queue        *queue.Queue
 	Task         *common.Publish
-	MetricBuf    chan []snap.Metric
 	Publisher    publisher.Publisher
 	Config       snap.Config
 	Agent        *NodeAgent
@@ -27,10 +29,10 @@ func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPub
 		return nil, errors.New(fmt.Sprintf("Unable to create publisher {%s}: %s", p.PluginName, err.Error()))
 	}
 
-	queue := make(chan []snap.Metric, 100)
+	queueSize := agent.Config.GetInt("PublisherQueueSize")
 	return &HyperpilotPublisher{
+		Queue:     queue.NewCappedQueue(queueSize),
 		Task:      p,
-		MetricBuf: queue,
 		Publisher: publisher,
 		Config:    cfg,
 		Id:        p.Id,
@@ -39,22 +41,56 @@ func NewHyperpilotPublisher(agent *NodeAgent, p *common.Publish) (*HyperpilotPub
 }
 
 func (publisher *HyperpilotPublisher) Run() {
+	retryTimeout, err := time.ParseDuration(publisher.Agent.Config.GetString("PublisherTimeOut"))
+	if err != nil {
+		log.Warnf("Parse PublisherTimeOut {%s} fail, use default interval 3 min in publisher {%s}",
+			publisher.Agent.Config.GetString("PublisherTimeOut"), publisher.Id)
+		retryTimeout = 3 * time.Minute
+	}
+
+	batchSize := publisher.Agent.Config.GetInt("PublisherBatchSize")
+	if batchSize < 1 {
+		log.Warnf("Batch Size {%d} is not feasible, use 1 instead", publisher.Agent.Config.GetInt("PublisherBatchSize"))
+		batchSize = 1
+	}
+
 	go func() {
+		b := backoff.NewExponentialBackOff()
+		b.InitialInterval = 10 * time.Second
+		b.MaxInterval = 1 * time.Minute
+		b.MaxElapsedTime = retryTimeout
+
 		for {
-			select {
-			case metrics := <-publisher.MetricBuf:
-				if err := publisher.Publisher.Publish(metrics, publisher.Config); err != nil {
+			if !publisher.Queue.Empty() {
+				var batchMetrics []snap.Metric
+				for i := 0; i < batchSize; i++ {
+					metrics := publisher.Queue.Dequeue()
+					if metrics == nil {
+						log.Warnf("Publisher {%s} get nil metric, because element number inside of queue is less than batch size {%d}",
+							publisher.Id, batchSize)
+						continue
+					}
+					batchMetrics = append(batchMetrics, metrics.([]snap.Metric) ...)
+				}
+
+				retryPublish := func() error {
+					return publisher.Publisher.Publish(batchMetrics, publisher.Config)
+				}
+
+				err := backoff.Retry(retryPublish, b)
+				if err != nil {
 					publisher.FailureCount++
 					publisher.reportError(err)
-					log.Warnf("Publiser push metric fail: %s", err.Error())
+					log.Warnf("Publisher {%s} push metric fail, %d metrics are dropped: %s", publisher.Id, len(batchMetrics), err.Error())
 				}
+				time.Sleep(1 * time.Second)
 			}
 		}
 	}()
 }
 
 func (publisher *HyperpilotPublisher) Put(metrics []snap.Metric) {
-	publisher.MetricBuf <- metrics
+	publisher.Queue.Enqueue(metrics)
 }
 
 func (publisher *HyperpilotPublisher) reportError(err error) {

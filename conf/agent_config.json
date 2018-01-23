@@ -1,0 +1,7 @@
+{
+  "APIServerPort": "7000",
+  "TaskConfiguration": "/etc/node_agent/tasks.json",
+  "PublisherQueueSize": 100,
+  "PublisherTimeOut": "3m",
+  "PublisherBatchSize": 10
+}
