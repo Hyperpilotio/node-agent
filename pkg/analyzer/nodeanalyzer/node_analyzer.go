@@ -5,19 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/gobwas/glob"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
 )
 
 type NodeAnalyzer struct {
-	DerivedMetrics      *DerivedMetrics
-	NormalizerDataCache map[string]float64
-	mutex               sync.Mutex
+	DerivedMetrics    *DerivedMetrics
+	MetricPatterns    []glob.Glob
+	NormalizerMapping map[string]string
+	mutex             sync.Mutex
 }
 
 func init() {
@@ -27,45 +29,69 @@ func init() {
 // NewProcessor generate processor
 func NewAnalyzer() *NodeAnalyzer {
 	return &NodeAnalyzer{
-		NormalizerDataCache: make(map[string]float64),
+		MetricPatterns:    make([]glob.Glob, 0),
+		NormalizerMapping: make(map[string]string),
 	}
 }
 
-func (p *NodeAnalyzer) cacheNormalizerData(mts []snap.Metric) {
+func (p *NodeAnalyzer) getNormalizerData(filterMetricNm string, filterNodename string, mts []snap.Metric) float64 {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	filterNormalizerNm := ""
 	for _, mt := range mts {
-		metricNm := strings.Join(mt.Namespace.Strings(), "/")
-		nodename := mt.Tags["nodename"]
-		cacheKey := nodename + "/" + metricNm
-		for normalizerNm, _ := range p.NormalizerDataCache {
-			if strings.HasPrefix("intel/docker", normalizerNm) && strings.HasPrefix("intel/docker", metricNm) {
-				dockerId := mt.Namespace.Strings()[2]
-				normalizerNm = strings.Replace(normalizerNm, "*", dockerId, 1)
-			}
+		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
+		mtNodename := mt.Tags["nodename"]
+		dockerId := ""
+		if strings.HasPrefix("/intel/docker", mtMetricNm) {
+			dockerId = mt.Namespace.Strings()[2]
+		}
+		if mtMetricNm == filterMetricNm && mtNodename == filterNodename {
+			for metricName, normalizer := range p.NormalizerMapping {
+				if strings.HasPrefix("/intel/docker", metricName) {
+					metricName = strings.Replace(metricName, "*", dockerId, 1)
+					normalizer = strings.Replace(normalizer, "*", dockerId, 1)
+				}
 
-			if metricNm == normalizerNm {
-				p.NormalizerDataCache[cacheKey] = convertFloat64(mt.Data)
+				if mtMetricNm == metricName {
+					filterNormalizerNm = normalizer
+					break
+				}
 			}
 		}
 	}
+
+	if filterNormalizerNm == "" {
+		return 0
+	}
+
+	for _, mt := range mts {
+		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
+		mtNodename := mt.Tags["nodename"]
+		if mtMetricNm == filterNormalizerNm && mtNodename == filterNodename {
+			normalizerValue := convertFloat64(mt.Data)
+			log.Infof("Find %s normalizer data %f on %s", filterMetricNm, normalizerValue, filterNormalizerNm)
+			return normalizerValue
+		}
+	}
+
+	return 0
 }
 
 func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) {
-	p.cacheNormalizerData(mts)
-	log.Infof("Cache normalizer data: %+v", p.NormalizerDataCache)
-
 	metrics := []snap.Metric{}
 	for _, mt := range mts {
+		metricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
+		nodename := mt.Tags["nodename"]
 		currentTime := mt.Timestamp.UnixNano()
 		metricData := MetricData{
-			MetricName:          strings.Join(mt.Namespace.Strings(), "/"),
-			NodeName:            mt.Tags["nodename"],
-			Value:               convertFloat64(mt.Data),
-			Tags:                mt.Tags,
-			NormalizerDataCache: p.NormalizerDataCache,
+			MetricName:     metricNm,
+			NodeName:       nodename,
+			Value:          convertFloat64(mt.Data),
+			Tags:           mt.Tags,
+			NormalizerData: p.getNormalizerData(metricNm, nodename, mts),
 		}
+
 		derivedMetric, err := p.DerivedMetrics.ProcessMetric(currentTime, metricData)
 		if err != nil {
 			return nil, errors.New("Unable to process metric: " + err.Error())
@@ -82,6 +108,21 @@ func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) 
 			}
 
 			metrics = append(metrics, newMetric)
+		}
+	}
+
+	return metrics, nil
+}
+
+func (p *NodeAnalyzer) getMetricTypes(mts []snap.Metric) ([]snap.Metric, error) {
+	metrics := []snap.Metric{}
+	for _, mt := range mts {
+		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
+		for _, pattern := range p.MetricPatterns {
+			if pattern.Match(mtMetricNm) {
+				metrics = append(metrics, mt)
+				break
+			}
 		}
 	}
 
@@ -110,26 +151,37 @@ func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metri
 			}
 
 			if dmCfg.Normalizer != nil {
-				p.NormalizerDataCache[*dmCfg.Normalizer] = 0
+				p.NormalizerMapping[dmCfg.MetricName] = *dmCfg.Normalizer
 			}
 			dmCfgs = append(dmCfgs, dmCfg)
+
+			pattern, err := glob.Compile(dmCfg.MetricName)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to compile pattern %s: %s", dmCfg.MetricName, err.Error())
+			}
+			p.MetricPatterns = append(p.MetricPatterns, pattern)
 		}
 
 		interval, err := cfg.GetString("sampleInterval")
 		if err != nil {
 			return nil, errors.New("Unable to find sampleInterval duration: " + err.Error())
 		}
-		sampleInterval, err := strconv.ParseInt(interval, 10, 64)
+		sampleInterval, err := time.ParseDuration(interval)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse %s to int64: %s", interval, err.Error())
+			return nil, fmt.Errorf("Unable to parse %s to duration: %s", interval, err.Error())
 		}
 
-		derivedMetrics, err := NewDerivedMetrics(sampleInterval, dmCfgs)
+		derivedMetrics, err := NewDerivedMetrics(sampleInterval.Nanoseconds(), dmCfgs)
 		if err != nil {
 			return nil, errors.New("Unable to create derived metrics: " + err.Error())
 		}
 
 		p.DerivedMetrics = derivedMetrics
+	}
+
+	analyzeMts, err := p.getMetricTypes(mts)
+	if err != nil || len(analyzeMts) == 0 {
+		return nil, errors.New("Unable to get metric types to process: " + err.Error())
 	}
 
 	return p.ProcessMetrics(mts)

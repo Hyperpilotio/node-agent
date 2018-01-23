@@ -13,11 +13,11 @@ type DerivedMetricCalculator interface {
 }
 
 type MetricData struct {
-	MetricName          string
-	Value               float64
-	NodeName            string
-	Tags                map[string]string
-	NormalizerDataCache map[string]float64
+	MetricName     string
+	Value          float64
+	NodeName       string
+	Tags           map[string]string
+	NormalizerData float64
 }
 
 type DerivedMetricResult struct {
@@ -45,24 +45,25 @@ type ThresholdBasedConfig struct {
 type ThresholdBasedState struct {
 	MetricName          string
 	DerivedMetricConfig *DerivedMetricConfig
-	Hits                []int64
+	Hits                int64
+	Count               int64
 	TotalCount          int64
-	SampleInterval      int64
 }
 
 func NewThresholdBasedState(sampleInterval int64, config *DerivedMetricConfig) *ThresholdBasedState {
-	totalCount := config.ObservationWindowSec / sampleInterval
+	totalCount := config.ObservationWindowSec * 1000000000 / sampleInterval
 	metricName := config.MetricName + "/" + config.Type
 	if config.Normalizer != nil {
 		metricName = config.MetricName + "_normalized/" + config.Type
+	}
+	if strings.HasPrefix(metricName, "/") {
+		metricName = metricName[1:]
 	}
 
 	return &ThresholdBasedState{
 		MetricName:          metricName,
 		DerivedMetricConfig: config,
-		Hits:                make([]int64, 0),
 		TotalCount:          totalCount,
-		SampleInterval:      sampleInterval,
 	}
 }
 
@@ -90,7 +91,7 @@ func (tbs *ThresholdBasedState) computeSeverity(value float64) bool {
 		value = value / 1000
 	}
 
-	if tbs.DerivedMetricConfig.Type == "UB" {
+	if tbs.DerivedMetricConfig.ThresholdConfig.Type == "UB" {
 		return value >= tbs.DerivedMetricConfig.ThresholdConfig.Value
 	} else {
 		return value <= tbs.DerivedMetricConfig.ThresholdConfig.Value
@@ -104,47 +105,31 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData M
 
 	var metricValue float64
 	if tbs.DerivedMetricConfig.Normalizer != nil {
-		key := metricData.NodeName + "/" + *tbs.DerivedMetricConfig.Normalizer
-		normalizerValue := metricData.NormalizerDataCache[key]
-		metricValue = (metricData.Value / normalizerValue)
+		metricValue = (metricData.Value / metricData.NormalizerData)
 	} else {
 		metricValue = metricData.Value
 	}
 
 	if tbs.computeSeverity(metricValue) {
-		hitsLength := len(tbs.Hits)
-		if hitsLength > 0 {
-			// Fill in missing metric points
-			for currentTime-tbs.Hits[len(tbs.Hits)-1] >= 2*tbs.SampleInterval {
-				filledHitTime := tbs.Hits[len(tbs.Hits)-1] + tbs.SampleInterval
-				tbs.Hits = append(tbs.Hits, filledHitTime)
-			}
-		}
-
-		// Prune values outside of window
-		windowBeginTime := currentTime - tbs.DerivedMetricConfig.ObservationWindowSec
-		lastGoodIndex := -1
-		for i, hit := range tbs.Hits {
-			if hit >= windowBeginTime {
-				lastGoodIndex = i
-				break
-			}
-		}
-
-		if lastGoodIndex == -1 {
-			// All values are outside of window, clear all values
-			tbs.Hits = []int64{}
-		} else {
-			tbs.Hits = tbs.Hits[lastGoodIndex:]
-		}
-
-		tbs.Hits = append(tbs.Hits, currentTime)
+		tbs.Hits++
 	}
 
-	return &DerivedMetricResult{
-		Name:  tbs.MetricName,
-		Value: float64(len(tbs.Hits)) / float64(tbs.TotalCount),
+	if tbs.Hits > 0 {
+		tbs.Count++
 	}
+
+	if tbs.Count == tbs.TotalCount {
+		value := float64(tbs.Hits) / float64(tbs.TotalCount)
+		tbs.Hits = 0
+		tbs.Count = 0
+
+		return &DerivedMetricResult{
+			Name:  tbs.MetricName,
+			Value: value,
+		}
+	}
+
+	return nil
 }
 
 type GlobConfig struct {

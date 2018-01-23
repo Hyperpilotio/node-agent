@@ -8,6 +8,7 @@
             "collect": {
                 "plugin": "psutil",
                 "metrics": {
+                    "/intel/psutil/disk/*": {},
                     "/intel/psutil/vm/*": {}
                 },
                 "config": {
@@ -35,17 +36,17 @@
             "analyze": {
                 "plugin": "nodeanalyzer",
                 "config": {
-                    "sampleInterval": "5",
+                    "sampleInterval": "5s",
                     "configs": [
                         {
-                            "metric_name": "intel/psutil/vm/active",
+                            "metric_name": "/intel/psutil/vm/active",
                             "type": "over_utilization",
                             "resource": "memory",
-                            "normalizer": "intel/psutil/vm/total",
+                            "normalizer": "/intel/psutil/vm/total",
                             "observation_window_sec": 60,
                             "threshold": {
                                 "type": "UB",
-                                "value": 0.6645,
+                                "value": 0.177972,
                                 "unit": ""
                             }
                         }
