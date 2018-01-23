@@ -180,8 +180,11 @@ func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metri
 	}
 
 	analyzeMts, err := p.getMetricTypes(mts)
-	if err != nil || len(analyzeMts) == 0 {
-		return nil, errors.New("Unable to get metric types to process: " + err.Error())
+	if err != nil {
+		return nil, errors.New("Unable to get metric types to analyze: " + err.Error())
+	}
+	if len(analyzeMts) == 0 {
+		return nil, fmt.Errorf("No metrics are needed to analyze")
 	}
 
 	return p.ProcessMetrics(mts)
