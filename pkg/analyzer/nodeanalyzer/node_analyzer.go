@@ -43,14 +43,35 @@ func (p *NodeAnalyzer) getNormalizerData(filterMetricNm string, filterNodename s
 		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
 		mtNodename := mt.Tags["nodename"]
 		dockerId := ""
-		if strings.HasPrefix("/intel/docker", mtMetricNm) {
+		networkId := ""
+		filesystemId := ""
+		if strings.HasPrefix(mtMetricNm, "/intel/docker") {
 			dockerId = mt.Namespace.Strings()[2]
+			if strings.Contains(mtMetricNm, "/stats/network/") {
+				networkId = mt.Namespace.Strings()[5]
+			}
+			if strings.Contains(mtMetricNm, "/stats/filesystem/") {
+				filesystemId = mt.Namespace.Strings()[5]
+			}
 		}
+
 		if mtMetricNm == filterMetricNm && mtNodename == filterNodename {
 			for metricName, normalizer := range p.NormalizerMapping {
-				if strings.HasPrefix("/intel/docker", metricName) {
-					metricName = strings.Replace(metricName, "*", dockerId, 1)
-					normalizer = strings.Replace(normalizer, "*", dockerId, 1)
+				if strings.HasPrefix(metricName, "/intel/docker") {
+					metricName = strings.Replace(metricName, "/intel/docker/*/",
+						fmt.Sprintf("/intel/docker/%s/", dockerId), 1)
+					normalizer = strings.Replace(normalizer, "/intel/docker/*/",
+						fmt.Sprintf("/intel/docker/%s/", dockerId), 1)
+
+					metricName = strings.Replace(metricName, "/stats/network/*/",
+						fmt.Sprintf("/stats/network/%s/", networkId), 1)
+					normalizer = strings.Replace(normalizer, "/stats/network/*/",
+						fmt.Sprintf("/stats/network/%s/", networkId), 1)
+
+					metricName = strings.Replace(metricName, "/stats/filesystem/*/",
+						fmt.Sprintf("/stats/filesystem/%s/", filesystemId), 1)
+					normalizer = strings.Replace(normalizer, "/stats/filesystem/*/",
+						fmt.Sprintf("/stats/filesystem/%s/", filesystemId), 1)
 				}
 
 				if mtMetricNm == metricName {
