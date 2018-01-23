@@ -117,7 +117,11 @@ func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) 
 func (p *NodeAnalyzer) getMetricTypes(mts []snap.Metric) ([]snap.Metric, error) {
 	metrics := []snap.Metric{}
 	for _, mt := range mts {
-		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
+		mtMetricNm := strings.Join(mt.Namespace.Strings(), "/")
+		if !strings.HasPrefix(mtMetricNm, "/") {
+			mtMetricNm = "/" + mtMetricNm
+		}
+
 		for _, pattern := range p.MetricPatterns {
 			if pattern.Match(mtMetricNm) {
 				metrics = append(metrics, mt)
@@ -131,6 +135,10 @@ func (p *NodeAnalyzer) getMetricTypes(mts []snap.Metric) ([]snap.Metric, error) 
 
 // Analyze test analyze function
 func (p *NodeAnalyzer) Analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
+	if len(mts) == 0 {
+		return nil, errors.New("Unable to get metrics to analyze")
+	}
+
 	if p.DerivedMetrics == nil {
 		configs, ok := cfg["configs"]
 		if !ok {
