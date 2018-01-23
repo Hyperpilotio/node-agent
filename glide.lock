@@ -1,8 +1,12 @@
 hash: 5ef882c65120bdfb38892e9c2f5d3f8e0bc0fc51805f4db1ec17fc62fc8f1206
-updated: 2018-01-19T09:37:25.806960044+08:00
+updated: 2018-01-23T16:22:38.650804604+08:00
 imports:
+- name: github.com/cenkalti/backoff
+  version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
+- name: github.com/fsnotify/fsnotify
+  version: a904159b9206978bb6d53fcc7a769e5cd726c737
 - name: github.com/fsouza/go-dockerclient
   version: 412c004d923b7b89701e7a1632de83f843657a03
   subpackages:
@@ -48,12 +52,25 @@ imports:
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
   - proto
+- name: github.com/hashicorp/hcl
+  version: 372e8ddaa16fd67e371e9323807d056b799360af
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/scanner
+  - hcl/strconv
+  - hcl/token
+  - json/parser
+  - json/scanner
+  - json/token
 - name: github.com/influxdata/influxdb
   version: 4244d0e0536be53aab18160cd57e59190d57a693
   subpackages:
   - client/v2
   - models
   - pkg/escape
+- name: github.com/magiconair/properties
+  version: b3b15ef068fd0b17ddf408a23669f20811d194d2
 - name: github.com/mailru/easyjson
   version: db58e6f9072c545a3a24b8d44c51d81fff6dcb51
   subpackages:
@@ -68,12 +85,18 @@ imports:
   - pbutil
 - name: github.com/mistifyio/go-zfs
   version: cdc0f941c4d0e0e94d85348285568d921891e138
+- name: github.com/mitchellh/mapstructure
+  version: db1efb556f84b25a0a13a04aad883943538ad2e0
 - name: github.com/moby/moby
   version: 092cba3727bb9b4a2f0e922cd6c0f93ea270e363
   subpackages:
   - pkg/mount
 - name: github.com/oleiade/reflections
   version: 632977f98cd34d217c4b57d0840ec188b3d3dcaf
+- name: github.com/pelletier/go-buffruneio
+  version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
+- name: github.com/pelletier/go-toml
+  version: c9506ee96398e7571356462217b9e24d6a628d71
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/prometheus/client_model
@@ -101,6 +124,18 @@ imports:
   version: bb4de0191aa41b5507caa14b0650cdbddcd9280b
 - name: github.com/sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
+- name: github.com/spf13/afero
+  version: 72b31426848c6ef12a7a8e216708cb0d1530f074
+  subpackages:
+  - mem
+- name: github.com/spf13/cast
+  version: d1139bab1c07d5ad390a65e7305876b3c1a8370b
+- name: github.com/spf13/jwalterweatherman
+  version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
+- name: github.com/spf13/pflag
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+- name: github.com/spf13/viper
+  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - name: github.com/StackExchange/wmi
   version: ea383cf3ba6ec950874b8486cd72356d007c768f
 - name: github.com/ugorji/go
@@ -110,12 +145,18 @@ imports:
 - name: golang.org/x/net
   version: 054b33e6527139ad5b1ec2f6232c3b175bd9a30c
   subpackages:
+  - context
   - publicsuffix
 - name: golang.org/x/sys
   version: 90796e5a05ce440b41c768bd9af257005e470461
   subpackages:
   - unix
   - windows
+- name: golang.org/x/text
+  version: 1cbadb444a806fd9430d14ad08967ed91da4fa0a
+  subpackages:
+  - transform
+  - unicode/norm
 - name: gopkg.in/go-playground/validator.v8
   version: c193cecd124b5cc722d7ee5538e945bdb3348435
 - name: gopkg.in/yaml.v2
