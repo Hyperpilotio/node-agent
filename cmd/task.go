@@ -110,7 +110,7 @@ func (task *HyperpilotTask) Run() {
 				metrics, err := task.collect()
 				if err != nil {
 					task.FailureCount++
-					log.Warnf("collect metric fail, skip this time: %s", err.Error())
+					log.Warnf("collect metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 					task.reportError(err)
 					continue
 				}
@@ -119,16 +119,23 @@ func (task *HyperpilotTask) Run() {
 					metrics, err = task.process(metrics, task.Task.Process.Config)
 					if err != nil {
 						task.reportError(err)
-						log.Warnf("process metric fail, skip this time: %s", err.Error())
+						log.Warnf("process metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 						continue
 					}
 				}
+				for _, publish := range task.PublishConfig.Publisher {
+					publish.Put(metrics)
+				}
+
+				// Because analyze will be written to another database,
+				// so the code as publish below, to avoid analyze error,
+				// snap or snapaverage did not successfully write data
 				if task.Analyzer != nil {
 					task.FailureCount++
 					derivedMetrics, err := task.analyze(metrics, task.Task.Analyze.Config)
 					if err != nil {
 						task.reportError(err)
-						log.Warnf("analyze metric fail, skip this time: %s", err.Error())
+						log.Warnf("analyze metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 						continue
 					}
 					for _, publish := range task.PublishConfig.AnalyzerPublisher {
@@ -136,9 +143,6 @@ func (task *HyperpilotTask) Run() {
 							publish.Put(derivedMetrics)
 						}
 					}
-				}
-				for _, publish := range task.PublishConfig.Publisher {
-					publish.Put(metrics)
 				}
 			}
 		}
