@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gobwas/glob"
+	log "github.com/sirupsen/logrus"
 )
 
 type DerivedMetricCalculator interface {
@@ -42,12 +44,48 @@ type ThresholdBasedConfig struct {
 	Unit  string  `json:"unit"`
 }
 
+type WindowStateHit struct {
+	Hits         int64
+	HitStartTime int64
+	WindowTime   int64
+	Count        int64
+	TotalCount   int64
+}
+
+func (whs *WindowStateHit) addHits() {
+	whs.Hits++
+	if whs.Hits == 1 {
+		whs.HitStartTime = time.Now().UnixNano()
+	}
+}
+
+func (whs *WindowStateHit) addCount() {
+	if whs.Hits > 0 {
+		whs.Count++
+	}
+}
+
+func (whs *WindowStateHit) getThresholdFrequency(currentTime int64) float64 {
+	hitDuration := currentTime - whs.HitStartTime
+	if hitDuration >= whs.WindowTime {
+		whs.Count = whs.TotalCount
+	}
+
+	if whs.Count == whs.TotalCount {
+		thresholdFrequency := float64(whs.Hits) / float64(whs.TotalCount)
+		whs.Hits = 0
+		whs.Count = 0
+		return thresholdFrequency
+	}
+
+	return -1
+}
+
 type ThresholdBasedState struct {
 	MetricName          string
 	DerivedMetricConfig *DerivedMetricConfig
-	Hits                int64
-	Count               int64
-	TotalCount          int64
+	SampleInterval      int64
+	WindowStateHit      *WindowStateHit
 }
 
 func NewThresholdBasedState(sampleInterval int64, config *DerivedMetricConfig) *ThresholdBasedState {
@@ -66,7 +104,11 @@ func NewThresholdBasedState(sampleInterval int64, config *DerivedMetricConfig) *
 	return &ThresholdBasedState{
 		MetricName:          metricName,
 		DerivedMetricConfig: config,
-		TotalCount:          totalCount,
+		SampleInterval:      sampleInterval,
+		WindowStateHit: &WindowStateHit{
+			WindowTime: config.ObservationWindowSec * 1000000000,
+			TotalCount: totalCount,
+		},
 	}
 }
 
@@ -114,22 +156,29 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData M
 	}
 
 	if tbs.computeSeverity(metricValue) {
-		tbs.Hits++
+		tbs.WindowStateHit.addHits()
 	}
+	tbs.WindowStateHit.addCount()
 
-	if tbs.Hits > 0 {
-		tbs.Count++
-	}
-
-	if tbs.Count == tbs.TotalCount {
-		value := float64(tbs.Hits) / float64(tbs.TotalCount)
-		tbs.Hits = 0
-		tbs.Count = 0
-
+	if value := tbs.WindowStateHit.getThresholdFrequency(currentTime); value != -1 {
+		log.Infof("Finished compute %s threshold frequency: %f", tbs.MetricName, value)
 		return &DerivedMetricResult{
 			Name:  tbs.MetricName,
 			Value: value,
 		}
+	}
+
+	if tbs.WindowStateHit.Hits > 0 {
+		log.Infof("%s[value:%f] threshold frequency[%s:%f] is %d/%d on latest time duration[%d/%d]",
+			tbs.MetricName,
+			metricValue,
+			tbs.DerivedMetricConfig.ThresholdConfig.Type,
+			tbs.DerivedMetricConfig.ThresholdConfig.Value,
+			tbs.WindowStateHit.Hits,
+			tbs.WindowStateHit.TotalCount,
+			tbs.WindowStateHit.Count*tbs.SampleInterval/1000000000,
+			tbs.DerivedMetricConfig.ObservationWindowSec,
+		)
 	}
 
 	return nil
