@@ -66,6 +66,8 @@ func (whs *WindowStateHit) addCount() {
 }
 
 func (whs *WindowStateHit) getThresholdFrequency(currentTime int64) float64 {
+	// There may be missing points when the time duration is over windowTime,
+	// need to return the threshold frequency of this calculation
 	hitDuration := currentTime - whs.HitStartTime
 	if hitDuration >= whs.WindowTime {
 		whs.Count = whs.TotalCount
