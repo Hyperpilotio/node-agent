@@ -14,10 +14,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type HyperpilotTask struct {
+type BaseTask struct {
 	Task           *common.NodeTask
 	Id             string
-	Collector      collector.Collector
 	Processor      processor.Processor
 	Publisher      []*HyperpilotPublisher
 	CollectMetrics []snap.Metric
@@ -25,13 +24,27 @@ type HyperpilotTask struct {
 	Agent          *NodeAgent
 }
 
-func NewHyperpilotTask(
-	task *common.NodeTask,
+type HyperpilotTask interface {
+	Run()
+}
+
+type NormalTask struct {
+	BaseTask
+	Collector collector.NormalCollector
+}
+
+type StreamTask struct {
+	BaseTask
+	Collector collector.StreamCollector
+}
+
+func NewTask(task *common.NodeTask,
 	id string,
 	allMetricTypes []snap.Metric,
-	collector collector.Collector,
+	coll collector.Collector,
 	processor processor.Processor,
-	agent *NodeAgent) (*HyperpilotTask, error) {
+	agent *NodeAgent) (HyperpilotTask, error) {
+
 	var pubs []*HyperpilotPublisher
 
 	for _, pubId := range *task.Publish {
@@ -61,18 +74,62 @@ func NewHyperpilotTask(
 		return nil, errors.New(errMsg)
 	}
 
-	return &HyperpilotTask{
+	base := BaseTask{
 		Task:           task,
 		Id:             id,
-		Collector:      collector,
 		Processor:      processor,
 		Publisher:      pubs,
 		CollectMetrics: cmts,
 		Agent:          agent,
-	}, nil
+	}
+
+	if common.IsInstanceOf(coll, (*collector.NormalCollector)(nil)) {
+		return &NormalTask{
+			BaseTask:  base,
+			Collector: coll.(collector.NormalCollector),
+		}, nil
+	} else {
+		return &StreamTask{
+			BaseTask:  base,
+			Collector: coll.(collector.StreamCollector),
+		}, nil
+	}
 }
 
-func (task *HyperpilotTask) Run() {
+func (task *StreamTask) Run() {
+
+	if err := task.collect(); err != nil {
+		log.Errorf("Unable to start stream collector {%s}: %s", task.Id, err.Error())
+		task.FailureCount++
+		task.reportError(err)
+		return
+	}
+
+	go func() {
+		log.Infof("wait for processing incoming snap metric")
+		for {
+			select {
+			case metrics := <-task.Collector.Metrics():
+				addTags(task.Task.Collect.Tags, metrics)
+				if task.Processor != nil {
+					var err error
+					task.FailureCount++
+					metrics, err = task.process(metrics, task.Task.Process.Config)
+					if err != nil {
+						task.reportError(err)
+						log.Warnf("process metric fail, skip this time: %s", err.Error())
+						continue
+					}
+				}
+				for _, publish := range task.Publisher {
+					publish.Put(metrics)
+				}
+			}
+		}
+	}()
+}
+
+func (task *NormalTask) Run() {
 	waitTime, err := time.ParseDuration(task.Task.Schedule.Interval)
 	if err != nil {
 		log.Warnf("Parse schedule interval {%s} fail, use default interval 5 seconds",
@@ -163,7 +220,7 @@ func addTags(tags map[string]map[string]string, mts []snap.Metric) []snap.Metric
 	return newMts
 }
 
-func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
+func (task *NormalTask) collect() ([]snap.Metric, error) {
 	collectMetrics, err := task.Collector.CollectMetrics(task.CollectMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to collect metrics for %s: %s", task.Id, err.Error())
@@ -172,11 +229,19 @@ func (task *HyperpilotTask) collect() ([]snap.Metric, error) {
 	return addTags(task.Task.Collect.Tags, collectMetrics), nil
 }
 
-func (task *HyperpilotTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
+func (task *StreamTask) collect() error {
+	if err := task.Collector.StreamMetrics(task.CollectMetrics); err != nil {
+		log.Warnf("")
+		return err
+	}
+	return nil
+}
+
+func (task *BaseTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
 	return task.Processor.Process(mts, cfg)
 }
 
-func (task *HyperpilotTask) reportError(err error) {
+func (task *BaseTask) reportError(err error) {
 	report := common.TaskReport{
 		Id:            task.Id,
 		Plugin:        task.Task.Process.PluginName,

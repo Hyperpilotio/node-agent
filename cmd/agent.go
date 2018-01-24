@@ -112,7 +112,7 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 		}
 	}
 
-	newTask, err := NewHyperpilotTask(task, task.Id, metricTypes,
+	newTask, err := NewTask(task, task.Id, metricTypes,
 		taskCollector, taskProcessor, nodeAgent)
 	if err != nil {
 		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
@@ -122,7 +122,7 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 		log.Warnf("Task id {%s} is duplicated, skip this task", task.Id)
 		return nil
 	}
-	nodeAgent.Tasks[task.Id] = newTask
+	nodeAgent.Tasks[task.Id] = &newTask
 	return nil
 }
 
@@ -146,7 +146,7 @@ func (nodeAgent *NodeAgent) CreatePublisher(p *common.Publish) error {
 
 func (nodeAgent *NodeAgent) Run() {
 	for _, task := range nodeAgent.Tasks {
-		task.Run()
+		(*task).Run()
 	}
 }
 

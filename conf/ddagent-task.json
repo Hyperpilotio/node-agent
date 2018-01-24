@@ -6,14 +6,11 @@
         "interval": "5s"
       },
       "collect": {
-        "plugin": "cpu",
+        "plugin": "ddagent",
         "metrics": {
-          "/intel/procfs/cpu/*": {}
+          "/ddagent/*": {}
         },
         "config": {
-          "/intel/procfs/cpu": {
-            "proc_path": "/proc"
-          }
         }
       },
       "publish": [
