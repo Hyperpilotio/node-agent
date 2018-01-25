@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hyperpilotio/node-agent/pkg/common"
@@ -18,7 +17,6 @@ type NodeAnalyzer struct {
 	initialized       bool
 	DerivedMetrics    *DerivedMetrics
 	NormalizerMapping map[string]string
-	mutex             sync.Mutex
 }
 
 func init() {
@@ -92,59 +90,49 @@ func (p *NodeAnalyzer) replaceNamespaceWildcardValue(inputNm string, replaceNm s
 	return strings.Join(actualNms, "/")
 }
 
-func (p *NodeAnalyzer) getNormalizerData(filterMetricNm string, filterNodename string, mts []snap.Metric) float64 {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	filterNormalizerNm := ""
+func (p *NodeAnalyzer) getNormalizerData(mts []snap.Metric) map[string]map[string]float64 {
+	normalizerDataCache := map[string]map[string]float64{}
 	for _, mt := range mts {
 		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
 		mtNodename := mt.Tags["nodename"]
-
-		if mtMetricNm == filterMetricNm && mtNodename == filterNodename {
-			for metricName, normalizer := range p.NormalizerMapping {
-				if strings.Contains(metricName, "*") {
-					metricName = p.replaceNamespaceWildcardValue(mtMetricNm, metricName)
-					normalizer = p.replaceNamespaceWildcardValue(mtMetricNm, normalizer)
-				}
-
-				if mtMetricNm == metricName {
-					filterNormalizerNm = normalizer
-					break
-				}
+		for metricName, normalizer := range p.NormalizerMapping {
+			if strings.Contains(metricName, "*") {
+				metricName = p.replaceNamespaceWildcardValue(mtMetricNm, metricName)
+				normalizer = p.replaceNamespaceWildcardValue(mtMetricNm, normalizer)
+			}
+			if mtMetricNm == normalizer {
+				normalizerData := map[string]float64{}
+				normalizerData[mtNodename] = convertFloat64(mt.Data)
+				normalizerDataCache[metricName] = normalizerData
 			}
 		}
 	}
 
-	if filterNormalizerNm == "" {
-		return 0
-	}
-
-	for _, mt := range mts {
-		mtMetricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
-		mtNodename := mt.Tags["nodename"]
-		if mtMetricNm == filterNormalizerNm && mtNodename == filterNodename {
-			normalizerValue := convertFloat64(mt.Data)
-			log.Infof("Find %s normalizer data %f on %s", filterMetricNm, normalizerValue, filterNormalizerNm)
-			return normalizerValue
-		}
-	}
-
-	return 0
+	return normalizerDataCache
 }
 
 func (p *NodeAnalyzer) ProcessMetrics(mts []snap.Metric) ([]snap.Metric, error) {
+	normalizerDataCache := p.getNormalizerData(mts)
 	metrics := []snap.Metric{}
 	for _, mt := range mts {
 		metricNm := "/" + strings.Join(mt.Namespace.Strings(), "/")
 		nodename := mt.Tags["nodename"]
 		currentTime := mt.Timestamp.UnixNano()
+
+		var normalizerData float64
+		if data, ok := normalizerDataCache[metricNm]; ok {
+			if val, ok := data[nodename]; ok {
+				log.Infof("Find %s normalizer data %f", metricNm, val)
+				normalizerData = val
+			}
+		}
+
 		metricData := MetricData{
 			MetricName:     metricNm,
 			NodeName:       nodename,
 			Value:          convertFloat64(mt.Data),
 			Tags:           mt.Tags,
-			NormalizerData: p.getNormalizerData(metricNm, nodename, mts),
+			NormalizerData: normalizerData,
 		}
 
 		derivedMetric, err := p.DerivedMetrics.ProcessMetric(currentTime, metricData)
