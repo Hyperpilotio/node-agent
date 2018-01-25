@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gobwas/glob"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/snap"
 	log "github.com/sirupsen/logrus"
@@ -18,7 +17,6 @@ import (
 type NodeAnalyzer struct {
 	initialized       bool
 	DerivedMetrics    *DerivedMetrics
-	MetricPatterns    []glob.Glob
 	NormalizerMapping map[string]string
 	mutex             sync.Mutex
 }
@@ -30,7 +28,6 @@ func init() {
 // NewProcessor generate processor
 func NewAnalyzer() *NodeAnalyzer {
 	return &NodeAnalyzer{
-		MetricPatterns:    make([]glob.Glob, 0),
 		NormalizerMapping: make(map[string]string),
 	}
 }
@@ -58,12 +55,6 @@ func (p *NodeAnalyzer) init(cfg snap.Config) error {
 			p.NormalizerMapping[dmCfg.MetricName] = *dmCfg.Normalizer
 		}
 		dmCfgs = append(dmCfgs, dmCfg)
-
-		pattern, err := glob.Compile(dmCfg.MetricName)
-		if err != nil {
-			return fmt.Errorf("Unable to compile pattern %s: %s", dmCfg.MetricName, err.Error())
-		}
-		p.MetricPatterns = append(p.MetricPatterns, pattern)
 	}
 
 	interval, err := cfg.GetString("sampleInterval")
@@ -186,8 +177,8 @@ func (p *NodeAnalyzer) getMetricTypes(mts []snap.Metric) ([]snap.Metric, error) 
 			mtMetricNm = "/" + mtMetricNm
 		}
 
-		for _, pattern := range p.MetricPatterns {
-			if pattern.Match(mtMetricNm) {
+		for _, globConfig := range p.DerivedMetrics.GlobConfigs {
+			if globConfig.Pattern.Match(mtMetricNm) {
 				metrics = append(metrics, mt)
 				break
 			}
