@@ -230,7 +230,7 @@ func (task *NormalTask) collect() ([]snap.Metric, error) {
 }
 
 func (task *StreamTask) collect() error {
-	if err := task.Collector.StreamMetrics(task.CollectMetrics); err != nil {
+	if err := task.Collector.StreamMetrics(); err != nil {
 		log.Warnf("")
 		return err
 	}

@@ -58,7 +58,7 @@ func (d *DdAgent) GetMetricTypes(cfg snap.Config) ([]snap.Metric, error) {
 	return mts, nil
 }
 
-func (d *DdAgent) StreamMetrics(mts []snap.Metric) error {
+func (d *DdAgent) StreamMetrics() error {
 	if d.isStarted {
 		return errors.New("server already started")
 	}
@@ -73,7 +73,7 @@ func (d *DdAgent) StreamMetrics(mts []snap.Metric) error {
 		for {
 			select {
 			case data := <-d.tcp.Data():
-				metric, err := parseData(data, mts)
+				metric, err := parseData(data)
 				if err != nil {
 					log.Warnf(err.Error())
 					continue
@@ -104,7 +104,7 @@ func (d *DdAgent) Metrics() chan []snap.Metric {
 	return d.outMetrics
 }
 
-func parseData(data []byte, mts []snap.Metric) (*snap.Metric, error) {
+func parseData(data []byte) (*snap.Metric, error) {
 	var ddMetric Metric
 	var snapMetric snap.Metric
 
@@ -116,13 +116,15 @@ func parseData(data []byte, mts []snap.Metric) (*snap.Metric, error) {
 	ns := snap.NewNamespace("ddagent")
 	ns = ns.AddStaticElements(strings.Split(ddMetric.MetricName, ".")...)
 
-	//todo: compare mts
-	//return nil, errors.New("")
-
-	//todo: fill in tag from datadog
+	tag := make(map[string]string)
+	tag["host"] = ddMetric.Host
+	for k, v := range ddMetric.Tags {
+		tag[k] = v
+	}
 
 	snapMetric = snap.Metric{
 		Namespace: ns,
+		Tags:      tag,
 		Timestamp: time.Unix(ddMetric.Timestamp, 0),
 		Data:      ddMetric.Value,
 	}

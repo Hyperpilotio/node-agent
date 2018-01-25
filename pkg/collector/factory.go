@@ -26,7 +26,7 @@ type NormalCollector interface {
 
 type StreamCollector interface {
 	Collector
-	StreamMetrics([]snap.Metric) error
+	StreamMetrics() error
 	Metrics() chan []snap.Metric
 }
 
