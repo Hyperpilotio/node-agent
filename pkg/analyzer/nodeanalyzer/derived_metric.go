@@ -52,35 +52,49 @@ type WindowStateHit struct {
 	TotalCount   int64
 }
 
-func (whs *WindowStateHit) addHits() {
-	whs.Hits++
-	if whs.Hits == 1 {
-		whs.HitStartTime = time.Now().UnixNano()
+type ThresholdFrequencyResult struct {
+	Value      float64
+	Hits       int64
+	Count      int64
+	TotalCount int64
+}
+
+func (wsh *WindowStateHit) addHits() {
+	wsh.Hits++
+	if wsh.Hits == 1 {
+		wsh.HitStartTime = time.Now().UnixNano()
 	}
 }
 
-func (whs *WindowStateHit) addCount() {
-	if whs.Hits > 0 {
-		whs.Count++
+func (wsh *WindowStateHit) addCount() {
+	if wsh.Hits > 0 {
+		wsh.Count++
 	}
 }
 
-func (whs *WindowStateHit) getThresholdFrequency(currentTime int64) float64 {
+func (wsh *WindowStateHit) getThresholdFrequency(currentTime int64) *ThresholdFrequencyResult {
 	// There may be missing points when the time duration is over windowTime,
 	// need to return the threshold frequency of this calculation
-	hitDuration := currentTime - whs.HitStartTime
-	if hitDuration >= whs.WindowTime {
-		whs.Count = whs.TotalCount
+	if wsh.Hits > 0 {
+		hitDuration := currentTime - wsh.HitStartTime
+		if hitDuration >= wsh.WindowTime {
+			wsh.Count = wsh.TotalCount
+		}
 	}
 
-	if whs.Count == whs.TotalCount {
-		thresholdFrequency := float64(whs.Hits) / float64(whs.TotalCount)
-		whs.Hits = 0
-		whs.Count = 0
-		return thresholdFrequency
+	if wsh.Count == wsh.TotalCount {
+		result := &ThresholdFrequencyResult{
+			Value:      float64(wsh.Hits) / float64(wsh.TotalCount),
+			Hits:       wsh.Hits,
+			Count:      wsh.Count,
+			TotalCount: wsh.TotalCount,
+		}
+		wsh.Hits = 0
+		wsh.Count = 0
+		return result
 	}
 
-	return -1
+	return nil
 }
 
 type ThresholdBasedState struct {
@@ -162,17 +176,21 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData M
 	}
 	tbs.WindowStateHit.addCount()
 
-	if value := tbs.WindowStateHit.getThresholdFrequency(currentTime); value != -1 {
-		log.Infof("Finished compute %s threshold frequency: %f", tbs.MetricName, value)
+	if result := tbs.WindowStateHit.getThresholdFrequency(currentTime); result != nil {
+		log.Infof("Finished compute %s threshold frequency[%d/%d]: %f",
+			metricData.MetricName,
+			result.Hits,
+			result.TotalCount,
+			result.Value)
 		return &DerivedMetricResult{
 			Name:  tbs.MetricName,
-			Value: value,
+			Value: result.Value,
 		}
 	}
 
 	if tbs.WindowStateHit.Hits > 0 {
 		log.Infof("%s[value:%f] threshold frequency[%s:%f] is %d/%d on latest time duration[%d/%d]",
-			tbs.MetricName,
+			metricData.MetricName,
 			metricValue,
 			tbs.DerivedMetricConfig.ThresholdConfig.Type,
 			tbs.DerivedMetricConfig.ThresholdConfig.Value,
@@ -202,24 +220,15 @@ func NewDerivedMetrics(sampleInterval int64, configs []DerivedMetricConfig) (*De
 	globConfigs := []GlobConfig{}
 
 	for _, config := range configs {
-		// We assume any metric name with wildcard is a pattern to be matched
-		if strings.Contains(config.MetricName, "/*") {
-			pattern, err := glob.Compile(config.MetricName)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to compile pattern %s: %s", config.MetricName, err.Error())
-			}
-			globConfig := GlobConfig{
-				Config:  &config,
-				Pattern: pattern,
-			}
-			globConfigs = append(globConfigs, globConfig)
-		} else {
-			calculator, err := NewDerivedMetricCalculator(sampleInterval, &config)
-			if err != nil {
-				return nil, errors.New("Unable to create derived metric calculator: " + err.Error())
-			}
-			states[config.MetricName] = calculator
+		pattern, err := glob.Compile(config.MetricName)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to compile pattern %s: %s", config.MetricName, err.Error())
 		}
+		globConfig := GlobConfig{
+			Config:  &config,
+			Pattern: pattern,
+		}
+		globConfigs = append(globConfigs, globConfig)
 	}
 
 	return &DerivedMetrics{
