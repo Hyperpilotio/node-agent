@@ -7,29 +7,45 @@ import (
 	"time"
 
 	"github.com/hyperpilotio/node-agent/pkg/snap"
-	"github.com/hyperpilotio/node-agent/pkg/collector/ddagent/protocol"
 	log "github.com/sirupsen/logrus"
+	"strconv"
 )
 
 type DdAgent struct {
-	tcp        protocol.Receiver
+	tcp        *TCPListener
 	inMetric   chan *snap.Metric
 	outMetrics chan []snap.Metric
 	done       chan struct{}
 	isStarted  bool
+	isInit     bool
 }
 
 func New() (*DdAgent, error) {
 	return &DdAgent{
-		tcp:        protocol.NewTCPListener(8888),
+		tcp:        NewTCPListener(),
 		inMetric:   make(chan *snap.Metric, 1000),
 		outMetrics: make(chan []snap.Metric, 1000),
 		done:       make(chan struct{}),
 		isStarted:  false,
+		isInit:     false,
 	}, nil
 }
 
 func (d *DdAgent) GetMetricTypes(cfg snap.Config) ([]snap.Metric, error) {
+
+	if !d.isInit {
+		port, err := cfg.GetString("port")
+		if err != nil {
+			log.Warnf("Get Port configure failure: %s.", err.Error())
+			log.Warnf("Use default port %d", *d.tcp.port)
+		} else {
+			p, _ := strconv.Atoi(port)
+			d.tcp.port = &p
+			log.Infof("Use configured port number %d ", p)
+		}
+		d.isInit = true
+	}
+
 	mts := []snap.Metric{}
 	vals := []string{"ddagent"}
 	for _, val := range vals {

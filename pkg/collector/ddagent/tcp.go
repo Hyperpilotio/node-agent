@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package protocol
+package ddagent
 
 import (
 	"bufio"
@@ -31,15 +31,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type tcpListener struct {
+type TCPListener struct {
 	port     *int
 	data     chan []byte
 	listener *net.TCPListener
 	done     chan struct{}
 }
 
-func NewTCPListener(port int) *tcpListener {
-	listener := &tcpListener{
+func NewTCPListener() *TCPListener {
+	port := 8888
+	listener := &TCPListener{
 		data: make(chan []byte, 100),
 		done: make(chan struct{}),
 		port: &port,
@@ -47,15 +48,15 @@ func NewTCPListener(port int) *tcpListener {
 	return listener
 }
 
-func (t *tcpListener) Data() chan []byte {
+func (t *TCPListener) Data() chan []byte {
 	return t.data
 }
 
-func (t *tcpListener) Stop() {
+func (t *TCPListener) Stop() {
 	close(t.done)
 }
 
-func (t *tcpListener) listen() error {
+func (t *TCPListener) listen() error {
 	if t.listener == nil {
 		addr := fmt.Sprintf("%v:0", "0.0.0.0")
 		if t.port != nil {
@@ -78,7 +79,7 @@ func (t *tcpListener) listen() error {
 	return nil
 }
 
-func (t *tcpListener) handleConn(conn net.Conn) {
+func (t *TCPListener) handleConn(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	for {
@@ -125,7 +126,7 @@ func (t *tcpListener) handleConn(conn net.Conn) {
 	}
 }
 
-func (t *tcpListener) Start() error {
+func (t *TCPListener) Start() error {
 	if err := t.listen(); err != nil {
 		return err
 	}

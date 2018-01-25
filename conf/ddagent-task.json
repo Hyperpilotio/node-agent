@@ -2,15 +2,13 @@
   "tasks": [
     {
       "id": "task1",
-      "schedule": {
-        "interval": "5s"
-      },
       "collect": {
         "plugin": "ddagent",
         "metrics": {
           "/ddagent/*": {}
         },
         "config": {
+          "port": "8877"
         }
       },
       "publish": [
