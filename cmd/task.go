@@ -115,9 +115,9 @@ func (task *HyperpilotTask) Run() {
 					continue
 				}
 				if task.Processor != nil {
-					task.FailureCount++
 					metrics, err = task.process(metrics, task.Task.Process.Config)
 					if err != nil {
+						task.FailureCount++
 						task.reportError(err)
 						log.Warnf("process metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 						continue
@@ -131,9 +131,9 @@ func (task *HyperpilotTask) Run() {
 				// so the code as publish below, to avoid analyze error,
 				// snap or snapaverage did not successfully write data
 				if task.Analyzer != nil {
-					task.FailureCount++
 					derivedMetrics, err := task.analyze(metrics, task.Task.Analyze.Config)
 					if err != nil {
+						task.FailureCount++
 						task.reportError(err)
 						log.Warnf("analyze metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 						continue
