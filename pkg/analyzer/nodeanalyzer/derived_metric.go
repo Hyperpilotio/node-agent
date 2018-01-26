@@ -147,15 +147,15 @@ func (tbs *ThresholdBasedState) matchFilterTags(metricData MetricData) bool {
 	return true
 }
 
-func (tbs *ThresholdBasedState) computeSeverity(value float64) bool {
+func (tbs *ThresholdBasedState) isThresholdArrive(metricValue float64) bool {
 	if tbs.DerivedMetricConfig.ThresholdConfig.Unit == "ms" {
-		value = value / 1000
+		metricValue = metricValue / 1000
 	}
 
 	if tbs.DerivedMetricConfig.ThresholdConfig.Type == "UB" {
-		return value >= tbs.DerivedMetricConfig.ThresholdConfig.Value
+		return metricValue >= tbs.DerivedMetricConfig.ThresholdConfig.Value
 	} else {
-		return value <= tbs.DerivedMetricConfig.ThresholdConfig.Value
+		return metricValue <= tbs.DerivedMetricConfig.ThresholdConfig.Value
 	}
 }
 
@@ -171,7 +171,7 @@ func (tbs *ThresholdBasedState) GetDerivedMetric(currentTime int64, metricData M
 		metricValue = metricData.Value
 	}
 
-	if tbs.computeSeverity(metricValue) {
+	if tbs.isThresholdArrive(metricValue) {
 		tbs.WindowStateHit.addHits()
 	}
 	tbs.WindowStateHit.addCount()
