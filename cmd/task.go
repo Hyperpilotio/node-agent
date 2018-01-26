@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"github.com/hyperpilotio/node-agent/pkg/analyzer"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
@@ -14,11 +15,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type PublishConfig struct {
+	Publisher         []*HyperpilotPublisher
+	AnalyzerPublisher []*HyperpilotPublisher
+}
+
 type BaseTask struct {
 	Task           *common.NodeTask
 	Id             string
 	Processor      processor.Processor
-	Publisher      []*HyperpilotPublisher
+	Analyzer       analyzer.Analyzer
+	PublishConfig  *PublishConfig
 	CollectMetrics []snap.Metric
 	FailureCount   int64
 	Agent          *NodeAgent
@@ -43,10 +50,9 @@ func NewTask(task *common.NodeTask,
 	allMetricTypes []snap.Metric,
 	coll collector.Collector,
 	processor processor.Processor,
+	analyzer analyzer.Analyzer,
 	agent *NodeAgent) (HyperpilotTask, error) {
-
 	var pubs []*HyperpilotPublisher
-
 	for _, pubId := range *task.Publish {
 		p, ok := agent.Publishers[pubId]
 		if ok {
@@ -57,8 +63,20 @@ func NewTask(task *common.NodeTask,
 		}
 	}
 
-	metricPatterns := []glob.Glob{}
+	var analyzerPubs []*HyperpilotPublisher
+	if task.Analyze != nil {
+		for _, pubId := range *task.Analyze.Publish {
+			p, ok := agent.Publishers[pubId]
+			if ok {
+				log.Infof("Publisher {%s} is loaded for Task {%s}", pubId, task.Id)
+				analyzerPubs = append(analyzerPubs, p)
+			} else {
+				log.Warnf("Publisher {%s} is not loaded, skip", pubId)
+			}
+		}
+	}
 
+	metricPatterns := []glob.Glob{}
 	for name := range task.Collect.Metrics {
 		pattern, err := glob.Compile(name)
 		if err != nil {
@@ -75,10 +93,14 @@ func NewTask(task *common.NodeTask,
 	}
 
 	base := BaseTask{
-		Task:           task,
-		Id:             id,
-		Processor:      processor,
-		Publisher:      pubs,
+		Task:      task,
+		Id:        id,
+		Processor: processor,
+		Analyzer:  analyzer,
+		PublishConfig: &PublishConfig{
+			Publisher:         pubs,
+			AnalyzerPublisher: analyzerPubs,
+		},
 		CollectMetrics: cmts,
 		Agent:          agent,
 	}
@@ -121,8 +143,23 @@ func (task *StreamTask) Run() {
 						continue
 					}
 				}
-				for _, publish := range task.Publisher {
+				for _, publish := range task.PublishConfig.Publisher {
 					publish.Put(metrics)
+				}
+
+				if task.Analyzer != nil {
+					derivedMetrics, err := task.analyze(metrics, task.Task.Analyze.Config)
+					if err != nil {
+						task.FailureCount++
+						task.reportError(err)
+						log.Warnf("analyze metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
+						continue
+					}
+					for _, publish := range task.PublishConfig.AnalyzerPublisher {
+						if len(derivedMetrics) > 0 {
+							publish.Put(derivedMetrics)
+						}
+					}
 				}
 			}
 		}
@@ -144,21 +181,39 @@ func (task *NormalTask) Run() {
 				metrics, err := task.collect()
 				if err != nil {
 					task.FailureCount++
-					log.Warnf("collect metric fail, skip this time: %s", err.Error())
+					log.Warnf("collect metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 					task.reportError(err)
 					continue
 				}
 				if task.Processor != nil {
-					task.FailureCount++
 					metrics, err = task.process(metrics, task.Task.Process.Config)
 					if err != nil {
+						task.FailureCount++
 						task.reportError(err)
-						log.Warnf("process metric fail, skip this time: %s", err.Error())
+						log.Warnf("process metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
 						continue
 					}
 				}
-				for _, publish := range task.Publisher {
+				for _, publish := range task.PublishConfig.Publisher {
 					publish.Put(metrics)
+				}
+
+				// Because analyze will be written to another database,
+				// so the code as publish below, to avoid analyze error,
+				// snap or snapaverage did not successfully write data
+				if task.Analyzer != nil {
+					derivedMetrics, err := task.analyze(metrics, task.Task.Analyze.Config)
+					if err != nil {
+						task.FailureCount++
+						task.reportError(err)
+						log.Warnf("analyze metric fail for %s, skip this time: %s", task.Task.Id, err.Error())
+						continue
+					}
+					for _, publish := range task.PublishConfig.AnalyzerPublisher {
+						if len(derivedMetrics) > 0 {
+							publish.Put(derivedMetrics)
+						}
+					}
 				}
 			}
 		}
@@ -239,6 +294,10 @@ func (task *StreamTask) collect() error {
 
 func (task *BaseTask) process(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
 	return task.Processor.Process(mts, cfg)
+}
+
+func (task *BaseTask) analyze(mts []snap.Metric, cfg snap.Config) ([]snap.Metric, error) {
+	return task.Analyzer.Analyze(mts, cfg)
 }
 
 func (task *BaseTask) reportError(err error) {

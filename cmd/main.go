@@ -26,7 +26,7 @@ func main() {
 	}
 
 	if err := nodeAgent.Init(); err != nil {
-		log.Error("Agent Init() fail: %s", err.Error())
+		log.Errorf("Agent Init() fail: %s", err.Error())
 	}
 
 	log.Infof("Node Agent start running...")

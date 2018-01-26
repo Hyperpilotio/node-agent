@@ -5,14 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"sync"
 	"net/http"
+	"strings"
+	"sync"
 
+	"github.com/gin-gonic/gin"
+	"github.com/hyperpilotio/node-agent/pkg/analyzer"
 	"github.com/hyperpilotio/node-agent/pkg/collector"
 	"github.com/hyperpilotio/node-agent/pkg/common"
 	"github.com/hyperpilotio/node-agent/pkg/processor"
 	log "github.com/sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
 
@@ -43,11 +45,21 @@ func NewNodeAgent(config *viper.Viper) (*NodeAgent, error) {
 
 	log.Infof("%d Tasks are configured to load: ", len(taskDef.Tasks))
 	for _, task := range taskDef.Tasks {
+		taskInfos := []string{}
+		taskInfos = append(taskInfos, fmt.Sprintf("Task {%s}: collect={%s}", task.Id, task.Collect.PluginName))
 		if task.Process != nil {
-			log.Infof("Task {%s}: collect={%s}, process={%s}, publisher = %s", task.Id, task.Collect.PluginName, task.Process.PluginName, *task.Publish)
-		} else {
-			log.Infof("Task {%s}: collect={%s}, publisher = %s", task.Id, task.Collect.PluginName, *task.Publish)
+			taskInfos = append(taskInfos, fmt.Sprintf("process={%s}", task.Process.PluginName))
 		}
+
+		if task.Analyze != nil {
+			taskInfos = append(taskInfos, fmt.Sprintf("analyze={%s}", task.Analyze.PluginName))
+			if task.Analyze.Publish != nil {
+				taskInfos = append(taskInfos, fmt.Sprintf("analyzePublisher={%s}", *task.Analyze.Publish))
+			}
+		}
+
+		taskInfos = append(taskInfos, fmt.Sprintf("publisher = %s", *task.Publish))
+		log.Infof(strings.Join(taskInfos, ", "))
 	}
 
 	log.Infof("%d Puslisher are configured to load", len(taskDef.Publish))
@@ -77,7 +89,7 @@ func (nodeAgent *NodeAgent) Init() error {
 	// init all tasks
 	for _, task := range nodeAgent.TasksDef.Tasks {
 		if err := nodeAgent.CreateTask(task); err != nil {
-			log.Errorf("unable to create task {%s}: %s", task.Id, err.Error())
+			log.Errorf("Unable to create task {%s}: %s", task.Id, err.Error())
 			return err
 		}
 	}
@@ -112,10 +124,19 @@ func (nodeAgent *NodeAgent) CreateTask(task *common.NodeTask) error {
 		}
 	}
 
+	var taskAnalyzer analyzer.Analyzer
+	if task.Analyze != nil {
+		analyzeName := task.Analyze.PluginName
+		taskAnalyzer, err = analyzer.NewAnalyzer(analyzeName)
+		if err != nil {
+			return fmt.Errorf("unable to new %s analyzer for task %s: %s", analyzeName, task.Id, err.Error())
+		}
+	}
+
 	newTask, err := NewTask(task, task.Id, metricTypes,
-		taskCollector, taskProcessor, nodeAgent)
+		taskCollector, taskProcessor, taskAnalyzer, nodeAgent)
 	if err != nil {
-		return errors.New(fmt.Sprintf("unable to new agent task {%s}: %s", task.Id, err.Error()))
+		return errors.New(fmt.Sprintf("Unable to new agent task {%s}: %s", task.Id, err.Error()))
 	}
 
 	if _, ok := nodeAgent.Tasks[task.Id]; ok {
