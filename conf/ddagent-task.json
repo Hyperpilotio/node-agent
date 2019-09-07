@@ -2,18 +2,13 @@
   "tasks": [
     {
       "id": "task1",
-      "schedule": {
-        "interval": "5s"
-      },
       "collect": {
-        "plugin": "cpu",
+        "plugin": "ddagent",
         "metrics": {
-          "/intel/procfs/cpu/*": {}
+          "/ddagent/*": {}
         },
         "config": {
-          "/intel/procfs/cpu": {
-            "proc_path": "/proc"
-          }
+          "port": "8877"
         }
       },
       "publish": [

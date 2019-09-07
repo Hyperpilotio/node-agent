@@ -36,7 +36,7 @@ type Publish struct {
 
 type NodeTask struct {
 	Id       string    `json:"id"`
-	Schedule Schedule  `json:"schedule"`
+	Schedule Schedule  `json:"schedule,omitempty"`
 	Collect  *Collect  `json:"collect"`
 	Process  *Process  `json:"process"`
 	Analyze  *Analyze  `json:"analyze"`

@@ -1,5 +1,5 @@
 FROM ubuntu:xenial
-RUN apt-get update && apt-get -y install curl
+RUN apt-get update && apt-get -y install curl netcat jq
 RUN mkdir -p /etc/node_agent
 
 COPY ./bin/linux/node-agent .
